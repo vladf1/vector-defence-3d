@@ -1,0 +1,354 @@
+[
+  {
+    "name": "Outer Line",
+    "subtitle": "The invasion begins with a probing strike on the outer line.",
+    "waveCount": 5,
+    "initialBuildTime": 11,
+    "startingMoney": 32,
+    "allowEscape": 16,
+    "availableTowers": ["gun", "laser", "missile", "slow", "drone"],
+    "monsterSequence": ["packman", "packman", "runner", "square", "triangle"],
+    "points": [
+      [90, 0],
+      [90, 115],
+      [255, 115],
+      [255, 300],
+      [455, 300],
+      [455, 130],
+      [650, 130],
+      [650, 350],
+      [735, 350]
+    ],
+    "mobile": {
+      "points": [
+        [24, 0],
+        [24, 120],
+        [230, 120],
+        [230, 220],
+        [132, 220],
+        [132, 350],
+        [318, 350],
+        [318, 470],
+        [356, 470]
+      ]
+    }
+  },
+  {
+    "name": "Scout Rush",
+    "subtitle": "Enemy scouts accelerate the assault and punish hesitation.",
+    "waveCount": 4,
+    "initialBuildTime": 10,
+    "startingMoney": 34,
+    "allowEscape": 15,
+    "availableTowers": ["gun", "laser", "missile", "slow", "lightning"],
+    "monsterSequence": ["packman", "runner", "square", "runner", "triangle", "square"],
+    "points": [
+      [150, 0],
+      [150, 180],
+      [330, 180],
+      [330, 90],
+      [555, 90],
+      [555, 315],
+      [250, 315],
+      [250, 405],
+      [735, 405]
+    ],
+    "mobile": {
+      "points": [
+        [24, 0],
+        [24, 210],
+        [240, 210],
+        [240, 96],
+        [336, 96],
+        [336, 360],
+        [102, 360],
+        [102, 455],
+        [356, 455]
+      ]
+    }
+  },
+  {
+    "name": "Iron Front",
+    "subtitle": "The city front opens as heavier waves join the attack.",
+    "waveCount": 5,
+    "initialBuildTime": 11,
+    "startingMoney": 36,
+    "allowEscape": 14,
+    "availableTowers": ["gun", "laser", "missile", "slow", "drone"],
+    "monsterSequence": ["packman", "runner", "square", "triangle", "runner", "tank"],
+    "points": [
+      [0, 90],
+      [215, 90],
+      [215, 330],
+      [415, 330],
+      [415, 145],
+      [665, 145],
+      [665, 270],
+      [515, 270],
+      [515, 405],
+      [735, 405]
+    ],
+    "mobile": {
+      "initialBuildTime": 10,
+      "points": [
+        [42, 70],
+        [170, 70],
+        [170, 300],
+        [300, 300],
+        [300, 132],
+        [344, 132],
+        [344, 410],
+        [140, 410],
+        [224, 520],
+        [356, 520]
+      ]
+    }
+  },
+  {
+    "name": "Pressure Gate",
+    "subtitle": "Coordinated strikes begin breaking through single-lane defenses.",
+    "waveCount": 5,
+    "initialBuildTime": 11,
+    "startingMoney": 38,
+    "allowEscape": 13,
+    "availableTowers": ["gun", "laser", "missile", "slow", "lightning"],
+    "monsterSequence": ["runner", "triangle", "packman", "runner", "square", "tank", "splitter"],
+    "points": [
+      [255, 0],
+      [255, 100],
+      [585, 100],
+      [585, 200],
+      [185, 200],
+      [185, 300],
+      [620, 300],
+      [620, 400],
+      [100, 400]
+    ],
+    "mobile": {
+      "points": [
+        [24, 0],
+        [24, 92],
+        [332, 92],
+        [332, 190],
+        [74, 190],
+        [74, 304],
+        [320, 304],
+        [320, 420],
+        [160, 420],
+        [160, 560]
+      ]
+    }
+  },
+  {
+    "name": "Runner Storm",
+    "subtitle": "Elite runners surge ahead while armored packs close behind.",
+    "waveCount": 5,
+    "initialBuildTime": 12,
+    "startingMoney": 40,
+    "allowEscape": 12,
+    "availableTowers": ["gun", "laser", "missile", "slow", "drone"],
+    "monsterSequence": ["packman", "runner", "square", "triangle", "splitter", "tank", "runner"],
+    "points": [
+      [410, 0],
+      [410, 105],
+      [145, 105],
+      [145, 350],
+      [365, 350],
+      [365, 205],
+      [635, 205],
+      [635, 370],
+      [735, 370]
+    ],
+    "mobile": {
+      "initialBuildTime": 11,
+      "points": [
+        [332, 0],
+        [332, 112],
+        [72, 112],
+        [72, 346],
+        [222, 346],
+        [222, 210],
+        [336, 210],
+        [336, 440],
+        [356, 440]
+      ]
+    }
+  },
+  {
+    "name": "Heavy March",
+    "subtitle": "Heavy units enter the war and turn mistakes into breaches.",
+    "waveCount": 6,
+    "initialBuildTime": 12,
+    "startingMoney": 42,
+    "allowEscape": 12,
+    "availableTowers": ["gun", "laser", "missile", "slow", "lightning"],
+    "monsterSequence": ["packman", "runner", "square", "triangle", "tank", "splitter", "runner", "bulwark"],
+    "points": [
+      [65, 0],
+      [65, 140],
+      [300, 140],
+      [300, 365],
+      [540, 365],
+      [540, 105],
+      [705, 105],
+      [705, 275],
+      [400, 275],
+      [400, 410]
+    ],
+    "mobile": {
+      "points": [
+        [24, 0],
+        [24, 138],
+        [210, 138],
+        [210, 368],
+        [330, 368],
+        [330, 112],
+        [356, 112],
+        [356, 320],
+        [238, 320],
+        [238, 560]
+      ]
+    }
+  },
+  {
+    "name": "Fracture Grid",
+    "subtitle": "Specialist enemies flood the line and overwhelm simple plans.",
+    "waveCount": 6,
+    "initialBuildTime": 13,
+    "startingMoney": 44,
+    "allowEscape": 11,
+    "availableTowers": ["gun", "laser", "missile", "slow", "drone"],
+    "monsterSequence": ["runner", "square", "splitter", "triangle", "tank", "runner", "berserker", "bulwark"],
+    "points": [
+      [45, 390],
+      [210, 105],
+      [210, 340],
+      [390, 155],
+      [510, 155],
+      [510, 345],
+      [650, 225],
+      [755, 225]
+    ],
+    "mobile": {
+      "initialBuildTime": 12,
+      "points": [
+        [24, 510],
+        [120, 108],
+        [120, 420],
+        [238, 150],
+        [326, 150],
+        [326, 390],
+        [246, 286],
+        [366, 286]
+      ]
+    }
+  },
+  {
+    "name": "Overload",
+    "subtitle": "The assault becomes relentless, layered, and brutally mixed.",
+    "waveCount": 6,
+    "initialBuildTime": 13,
+    "startingMoney": 46,
+    "allowEscape": 10,
+    "availableTowers": ["gun", "laser", "missile", "slow", "lightning"],
+    "monsterSequence": ["square", "runner", "triangle", "splitter", "tank", "bulwark", "runner", "berserker"],
+    "points": [
+      [40, 90],
+      [235, 315],
+      [235, 110],
+      [500, 350],
+      [500, 120],
+      [285, 245],
+      [660, 245],
+      [760, 380]
+    ],
+    "mobile": {
+      "points": [
+        [24, 92],
+        [126, 352],
+        [126, 108],
+        [326, 390],
+        [326, 126],
+        [168, 286],
+        [350, 286],
+        [180, 550]
+      ]
+    }
+  },
+  {
+    "name": "Siege Breaker",
+    "subtitle": "The enemy commits its strongest formations to crack the defense.",
+    "waveCount": 7,
+    "initialBuildTime": 14,
+    "startingMoney": 49,
+    "allowEscape": 9,
+    "availableTowers": ["gun", "laser", "missile", "slow", "drone"],
+    "monsterSequence": ["runner", "splitter", "square", "tank", "bulwark", "triangle", "berserker", "runner", "tank"],
+    "points": [
+      [95, 450],
+      [95, 70],
+      [275, 250],
+      [315, 110],
+      [590, 110],
+      [590, 345],
+      [235, 345],
+      [460, 185],
+      [725, 185],
+      [725, 395]
+    ],
+    "mobile": {
+      "initialBuildTime": 13,
+      "points": [
+        [24, 536],
+        [24, 72],
+        [190, 360],
+        [190, 118],
+        [332, 118],
+        [332, 388],
+        [122, 388],
+        [246, 240],
+        [356, 240],
+        [195, 530]
+      ]
+    }
+  },
+  {
+    "name": "Corefall",
+    "subtitle": "The final wavefront descends. Hold the core or lose everything.",
+    "waveCount": 7,
+    "initialBuildTime": 14,
+    "startingMoney": 52,
+    "allowEscape": 8,
+    "availableTowers": ["gun", "laser", "missile", "slow", "lightning"],
+    "monsterSequence": ["runner", "splitter", "berserker", "square", "triangle", "bulwark", "tank", "runner", "splitter", "bulwark", "berserker"],
+    "points": [
+      [0, 400],
+      [720, 400],
+      [720, 75],
+      [95, 75],
+      [95, 330],
+      [610, 330],
+      [610, 135],
+      [185, 135],
+      [185, 255],
+      [505, 255],
+      [545, 255]
+    ],
+    "mobile": {
+      "initialBuildTime": 13,
+      "points": [
+        [0, 470],
+        [342, 470],
+        [342, 86],
+        [62, 86],
+        [62, 384],
+        [286, 384],
+        [286, 160],
+        [128, 160],
+        [128, 312],
+        [226, 312],
+        [226, 254]
+      ]
+    }
+  }
+]

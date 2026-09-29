@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>Vector Defence</title>
+    <script>
+      // Start acquiring the GPU while the app's modules download; src/gpu-device.ts adopts it.
+      if (navigator.gpu) {
+        const device = navigator.gpu.requestAdapter({ powerPreference: "high-performance" }).then((adapter) => {
+          if (!adapter) {
+            throw new Error("No WebGPU adapter is available.");
+          }
+          return adapter.requestDevice();
+        });
+        device.catch(() => undefined);
+        window.vectorDefenceGpuDevice = device;
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+  </html>

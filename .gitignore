@@ -1,0 +1,8 @@
+node_modules/
+dist/
+artifacts/
+.svelte-check/
+.DS_Store
+.codex-vite.out.log
+.codex-vite.err.log
+.codex-vite.pid

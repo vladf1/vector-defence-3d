@@ -1,0 +1,32 @@
+{
+  "name": "vector-defence-browser",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0",
+    "npm": ">=10.8.2"
+  },
+  "scripts": {
+    "dev": "vite",
+    "check:runtime": "node scripts/check-runtime.mjs",
+    "benchmark:death-effects": "node scripts/benchmark-death-effects.mjs",
+    "benchmark:update": "node scripts/benchmark-update-methods.mjs",
+    "render:levels": "node scripts/render-levels.mjs",
+    "render:3d": "node scripts/render-3d-board.mjs",
+    "benchmark:3d": "node scripts/benchmark-3d-renderer.mjs",
+    "benchmark:3d:startup": "node scripts/benchmark-3d-startup.mjs",
+    "build": "svelte-check --tsconfig ./tsconfig.json --tsgo && vite build",
+    "build:pages": "svelte-check --tsconfig ./tsconfig.json --tsgo && vite build --base=/vector-defence-3d/",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.2.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "playwright": "^1.62.1",
+    "svelte": "^5.56.8",
+    "svelte-check": "^4.7.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.0"
+  }
+}

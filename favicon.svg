@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="bg" cx="34" cy="28" r="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10251d" />
+      <stop offset="1" stop-color="#050908" />
+    </radialGradient>
+    <filter id="softGlow" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="1.2" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#bg)" />
+  <path d="M10 16h44M10 32h44M10 48h44M16 10v44M32 10v44M48 10v44" stroke="#9dffd7" stroke-opacity=".08" stroke-width="1" />
+
+  <path d="M6 50h25c8 0 12-4 12-12V8" fill="none" stroke="#082824" stroke-width="14" stroke-linecap="butt" stroke-linejoin="round" />
+  <path d="M6 50h25c8 0 12-4 12-12V8" fill="none" stroke="#6df0c2" stroke-opacity=".24" stroke-width="6" stroke-linecap="butt" stroke-linejoin="round" />
+
+  <g filter="url(#softGlow)">
+    <circle cx="43" cy="22" r="8" fill="#5df2ef" />
+    <path d="M38 22a5 5 0 0 1 10 0" fill="none" stroke="#dcfffe" stroke-width="2" stroke-linecap="round" opacity=".75" />
+  </g>
+
+  <g transform="translate(17 28) rotate(-28)" filter="url(#softGlow)">
+    <circle r="8" fill="#050908" stroke="#effff7" stroke-width="2.5" />
+    <rect x="-1" y="-2" width="14" height="4" rx="0" fill="#effff7" />
+  </g>
+</svg>
