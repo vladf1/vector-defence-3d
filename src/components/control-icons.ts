@@ -1,7 +1,7 @@
 // Top-bar control icons as neon-tube vector strokes (256 x 256 view box), traced from the
 // former PNG artwork: each stroke is drawn as stacked layers, widest and darkest first.
 
-export type ControlIconKind = "home" | "pause" | "play" | "sound-on" | "sound-muted";
+export type ControlIconKind = "home" | "pause" | "play" | "sound-on" | "sound-muted" | "help" | "close";
 
 interface StrokeLayer {
   readonly color: string;
@@ -69,6 +69,14 @@ export const CONTROL_ICONS: Record<ControlIconKind, readonly ControlIconStroke[]
   ],
   play: [
     { d: "M53 26Q53 18.6 59.6 23.2L198.9 120.6Q205.4 125.2 198.9 129.8L59.6 227.3Q53 231.9 53 224.5Z", layers: TUBE },
+  ],
+  help: [
+    { d: "M78 92A50 50 0 1 1 152 136Q128 150 128 176V184", layers: TUBE },
+    { d: "M128 222V224", layers: TUBE },
+  ],
+  close: [
+    { d: "M60 60L196 196", layers: TUBE },
+    { d: "M196 60L60 196", layers: TUBE },
   ],
   "sound-on": SPEAKER,
   "sound-muted": [...SPEAKER, { d: "M212 44L47.5 212", layers: MAGENTA }],

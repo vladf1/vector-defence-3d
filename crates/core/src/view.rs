@@ -1,5 +1,6 @@
 //! HUD and modal view models as JSON that `JSON.parse` turns into exactly the TS `HudSnapshot`
 //! and `ModalView` shapes (`src/types.ts`): banner text, labels, and formatting live here.
+use crate::constants::MAX_TOWER_LEVEL;
 use crate::entities::towers::registry::{TOWER_INFOS, tower_info};
 use crate::game::Game;
 use crate::json::{ObjectWriter, js_to_fixed, write_array, write_string};
@@ -100,6 +101,15 @@ pub fn create_hud_json(game: &Game, stats: &RuntimeHudStats) -> String {
     let mut object = ObjectWriter::new(&mut out);
     if let Some(level) = current_level {
         object.integer("levelNumber", level.level_number as i64);
+        object.string("levelName", level.name);
+        object.integer("escapesLeft", runtime.escapes_left as i64);
+        object.integer("escapesAllowed", level.allow_escape as i64);
+    }
+    if let Some(tower) = &selected {
+        object.string("selectedTowerKind", tower.kind.as_str());
+        object.integer("selectedTowerLevel", tower.level as i64 + 1);
+        object.integer("selectedTowerMaxLevel", MAX_TOWER_LEVEL as i64 + 1);
+        object.integer("selectedTowerRange", js_round(tower.range) as i64);
     }
     object.integer("money", runtime.money as i64);
     if active_wave.is_some() {
@@ -244,6 +254,7 @@ fn write_level_cards(out: &mut String, game: &Game) {
             .integer("stars", stars as i64)
             .string("status", status)
             .string("title", &format!("{} - {}", level.level_number, level.name))
+            .string("name", level.name)
             .string("description", description)
             .string("summary", &format!("{} waves · {} enemies", level.waves.len(), level.monster_count))
             .string("starsLabel", &format!("{} best clear", format_star_count(stars)));

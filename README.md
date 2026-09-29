@@ -103,6 +103,8 @@ The published site is available at [https://fridman.me/vector-defence-3d/](https
 - `U`: Upgrade selected tower
 - `Esc`: Cancel build mode
 - `Space`: Pause or resume
+- `?` or `H`: How to play (towers and controls)
+- `N`: Stats for nerds (frame rate, update and draw times, object counts)
 - Drag the board (any mouse button): Pan the view (desktop)
 - Mouse wheel or trackpad pinch over the board, or `=` / `-`: Zoom the view (desktop)
 - `Shift` + mouse wheel, or `↑` / `↓`: Tilt the view (desktop)

@@ -10,3 +10,13 @@ export const TOWER_ICON_SVG: Record<TowerKind, string> = {
   [TowerKind.Drone]: `<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><path d="M42 30A12 12 0 0 1 18 30A12 12 0 0 1 42 30" fill="#06100f"/><path d="M42 30A12 12 0 0 1 18 30A12 12 0 0 1 42 30" fill="none" stroke="#effff7" stroke-width="1.5"/><path d="M25.17 25.17L34.83 34.83M34.83 25.17L25.17 34.83" fill="none" stroke="#effff7" stroke-width="0.83" stroke-linecap="round"/><path d="M27.17 25.17A1.99 1.99 0 0 1 23.18 25.17A1.99 1.99 0 0 1 27.17 25.17" fill="rgba(239, 255, 247, 0.28)"/><path d="M25.98 25.17A0.8 0.8 0 0 1 24.37 25.17A0.8 0.8 0 0 1 25.98 25.17" fill="#9dffd7"/><path d="M36.82 25.17A1.99 1.99 0 0 1 32.83 25.17A1.99 1.99 0 0 1 36.82 25.17" fill="rgba(239, 255, 247, 0.28)"/><path d="M35.63 25.17A0.8 0.8 0 0 1 34.02 25.17A0.8 0.8 0 0 1 35.63 25.17" fill="#9dffd7"/><path d="M27.17 34.83A1.99 1.99 0 0 1 23.18 34.83A1.99 1.99 0 0 1 27.17 34.83" fill="rgba(239, 255, 247, 0.28)"/><path d="M25.98 34.83A0.8 0.8 0 0 1 24.37 34.83A0.8 0.8 0 0 1 25.98 34.83" fill="#9dffd7"/><path d="M36.82 34.83A1.99 1.99 0 0 1 32.83 34.83A1.99 1.99 0 0 1 36.82 34.83" fill="rgba(239, 255, 247, 0.28)"/><path d="M35.63 34.83A0.8 0.8 0 0 1 34.02 34.83A0.8 0.8 0 0 1 35.63 34.83" fill="#9dffd7"/><path d="M27.27 27.27L32.73 27.27L32.73 32.73L27.27 32.73Z" fill="#06100f"/><path d="M27.27 27.27L32.73 27.27L32.73 32.73L27.27 32.73Z" fill="none" stroke="#effff7" stroke-width="0.7" stroke-linecap="round"/><path d="M28.74 29.37L31.26 29.37L31.26 30.63L28.74 30.63Z" fill="#9dffd7"/></svg>`,
   [TowerKind.Lightning]: `<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><path d="M42 30A12 12 0 0 1 18 30A12 12 0 0 1 42 30" fill="#050908"/><path d="M42 30A12 12 0 0 1 18 30A12 12 0 0 1 42 30" fill="none" stroke="#ffffff" stroke-width="1.5"/><path d="M32.26 16.55L26.89 27.67L30.04 27.32L26.65 39.06L34.86 24.91L31.43 25.38Z" fill="#8ff7ff"/><path d="M32.26 16.55L26.89 27.67L30.04 27.32L26.65 39.06L34.86 24.91L31.43 25.38Z" fill="none" stroke="#ffffff" stroke-width="0.6"/><path d="M31.38 18.84L28.45 27.93L31.21 27.52L28.07 36.34" fill="none" stroke="rgba(143, 247, 255, 0.35)" stroke-width="0.55"/></svg>`,
 };
+
+/** Each tower's HUD accent (its weapon color in the 3D board). */
+export const TOWER_ACCENTS: Record<TowerKind, string> = {
+  [TowerKind.Gun]: "#e9fff6",
+  [TowerKind.Laser]: "#5bf4ff",
+  [TowerKind.Missile]: "#ff9d5c",
+  [TowerKind.Slow]: "#ffd35c",
+  [TowerKind.Drone]: "#6dff9c",
+  [TowerKind.Lightning]: "#b58cff",
+};
