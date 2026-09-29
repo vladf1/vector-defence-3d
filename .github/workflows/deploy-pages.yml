@@ -28,6 +28,29 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      # rustup reads the channel, components and targets from rust-toolchain.toml.
+      - name: Install the pinned Rust toolchain
+        run: |
+          rustup toolchain install
+          rustup show active-toolchain
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: false
+
+      # The CLI must match the wasm-bindgen crate pin in Cargo.toml.
+      - name: Cache wasm-bindgen-cli
+        id: wasm-bindgen
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/wasm-bindgen
+          key: wasm-bindgen-cli-0.2.129-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install wasm-bindgen-cli
+        if: steps.wasm-bindgen.outputs.cache-hit != 'true'
+        run: cargo install wasm-bindgen-cli --version 0.2.129 --locked --bin wasm-bindgen
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

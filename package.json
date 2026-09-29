@@ -8,16 +8,18 @@
     "npm": ">=10.8.2"
   },
   "scripts": {
-    "dev": "vite",
+    "wasm": "node scripts/build-wasm.mjs",
+    "dev": "npm run wasm && vite",
     "check:runtime": "node scripts/check-runtime.mjs",
-    "benchmark:death-effects": "node scripts/benchmark-death-effects.mjs",
-    "benchmark:update": "node scripts/benchmark-update-methods.mjs",
+    "test:rust": "cargo test --locked --workspace",
+    "rust:clippy": "cargo clippy --locked --workspace --all-targets -- -D warnings && cargo clippy --locked --target wasm32-unknown-unknown -p vd-web -- -D warnings",
     "render:levels": "node scripts/render-levels.mjs",
     "render:3d": "node scripts/render-3d-board.mjs",
     "benchmark:3d": "node scripts/benchmark-3d-renderer.mjs",
     "benchmark:3d:startup": "node scripts/benchmark-3d-startup.mjs",
-    "build": "svelte-check --tsconfig ./tsconfig.json --tsgo && vite build",
-    "build:pages": "svelte-check --tsconfig ./tsconfig.json --tsgo && vite build --base=/vector-defence-3d/",
+    "benchmark:compare": "node scripts/benchmark-compare.mjs",
+    "build": "npm run wasm && svelte-check --tsconfig ./tsconfig.json --tsgo && vite build",
+    "build:pages": "npm run wasm && svelte-check --tsconfig ./tsconfig.json --tsgo && vite build --base=/vector-defence-3d/",
     "preview": "vite preview"
   },
   "devDependencies": {

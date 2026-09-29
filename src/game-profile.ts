@@ -1,16 +1,6 @@
-import {
-  FIELD_HEIGHT,
-  FIELD_WIDTH,
-  MAX_TOWER_LEVEL,
-  ROAD_TURN_RADIUS,
-  ROAD_WIDTH,
-  ROUTE_CURVE_SAMPLE_STEP,
-  TOWER_RADIUS,
-  TOWER_ROAD_EDGE_OVERLAP_ALLOWANCE,
-  TOWER_UPGRADE_RING_GROWTH,
-  TOWER_UPGRADE_RING_OFFSET,
-} from "./constants";
-import type { PlacementGeometry } from "./placement-rules";
+// Page-shell side of the desktop/mobile profiles: layout, UI flags, and startup selection.
+// Gameplay geometry (tower radius, placement, speed and range scales, road shape) lives in
+// the engine (`crates/core/src/profile.rs`), which picks the same profile from `mode`.
 
 export const GameMode = {
   Desktop: "desktop",
@@ -25,16 +15,7 @@ export interface GameProfile {
   fieldHeight: number;
   fieldAspectRatio: string;
   fieldAspectScale: number;
-  towerRadius: number;
-  towerSelectionPadding: number;
-  towerRangeScale: number;
-  monsterSpeedScale: number;
-  roadTurnRadius: number;
-  roadWidth: number;
-  routeCurveSampleStep: number;
-  placement: PlacementGeometry;
   ui: {
-    drawCanvasTowerActions: boolean;
     showShortcutLabels: boolean;
     showTitle: boolean;
     showFootnote: boolean;
@@ -44,92 +25,31 @@ export interface GameProfile {
   };
 }
 
-function createProfile(options: {
-  mode: GameMode;
-  fieldWidth: number;
-  fieldHeight: number;
-  towerRadius: number;
-  towerSelectionPadding: number;
-  towerRangeScale: number;
-  monsterSpeedScale: number;
-  minDistanceToOtherTowers: number;
-  roadTurnRadius: number;
-  roadWidth: number;
-  routeCurveSampleStep: number;
-  ui: GameProfile["ui"];
-}): GameProfile {
-  const maxTowerBodyRadius = options.towerRadius
-    + TOWER_UPGRADE_RING_OFFSET
-    + (MAX_TOWER_LEVEL * TOWER_UPGRADE_RING_GROWTH);
-
-  const placement = {
-    bounds: { minX: 0, minY: 0, maxX: options.fieldWidth, maxY: options.fieldHeight },
-    towerRadius: options.towerRadius,
-    towerSelectionPadding: options.towerSelectionPadding,
-    minDistanceToOtherTowers: options.minDistanceToOtherTowers,
-    minDistanceToRoad: (options.roadWidth / 2) + maxTowerBodyRadius - TOWER_ROAD_EDGE_OVERLAP_ALLOWANCE,
-  };
-
+function createProfile(mode: GameMode, fieldWidth: number, fieldHeight: number, ui: GameProfile["ui"]): GameProfile {
   return {
-    mode: options.mode,
-    fieldWidth: options.fieldWidth,
-    fieldHeight: options.fieldHeight,
-    fieldAspectRatio: `${options.fieldWidth} / ${options.fieldHeight}`,
-    fieldAspectScale: options.fieldWidth / options.fieldHeight,
-    towerRadius: options.towerRadius,
-    towerSelectionPadding: options.towerSelectionPadding,
-    towerRangeScale: options.towerRangeScale,
-    monsterSpeedScale: options.monsterSpeedScale,
-    roadTurnRadius: options.roadTurnRadius,
-    roadWidth: options.roadWidth,
-    routeCurveSampleStep: options.routeCurveSampleStep,
-    placement,
-    ui: options.ui,
+    mode,
+    fieldWidth,
+    fieldHeight,
+    fieldAspectRatio: `${fieldWidth} / ${fieldHeight}`,
+    fieldAspectScale: fieldWidth / fieldHeight,
+    ui,
   };
 }
 
-export const DESKTOP_GAME_PROFILE = createProfile({
-  mode: GameMode.Desktop,
-  fieldWidth: FIELD_WIDTH,
-  fieldHeight: FIELD_HEIGHT,
-  towerRadius: TOWER_RADIUS,
-  towerRangeScale: 1,
-  monsterSpeedScale: 1,
-  minDistanceToOtherTowers: 32,
-  towerSelectionPadding: 6,
-  roadTurnRadius: ROAD_TURN_RADIUS,
-  roadWidth: ROAD_WIDTH,
-  routeCurveSampleStep: ROUTE_CURVE_SAMPLE_STEP,
-  ui: {
-    drawCanvasTowerActions: true,
-    showShortcutLabels: true,
-    showTitle: true,
-    showFootnote: true,
-    portraitOnly: false,
-    allowViewControls: true,
-  },
+export const DESKTOP_GAME_PROFILE = createProfile(GameMode.Desktop, 800, 450, {
+  showShortcutLabels: true,
+  showTitle: true,
+  showFootnote: true,
+  portraitOnly: false,
+  allowViewControls: true,
 });
 
-export const MOBILE_GAME_PROFILE = createProfile({
-  mode: GameMode.Mobile,
-  fieldWidth: 390,
-  fieldHeight: 560,
-  towerRadius: TOWER_RADIUS,
-  towerRangeScale: 0.9,
-  monsterSpeedScale: 0.9,
-  minDistanceToOtherTowers: 27,
-  towerSelectionPadding: 12,
-  roadTurnRadius: 34,
-  roadWidth: 25,
-  routeCurveSampleStep: 4,
-  ui: {
-    drawCanvasTowerActions: false,
-    showShortcutLabels: false,
-    showTitle: false,
-    showFootnote: false,
-    portraitOnly: true,
-    allowViewControls: false,
-  },
+export const MOBILE_GAME_PROFILE = createProfile(GameMode.Mobile, 390, 560, {
+  showShortcutLabels: false,
+  showTitle: false,
+  showFootnote: false,
+  portraitOnly: true,
+  allowViewControls: false,
 });
 
 export function selectStartupGameProfile(viewport: Window): GameProfile {

@@ -24,10 +24,9 @@ const html = String.raw`
   <body>
     <canvas id="level-render"></canvas>
     <script type="module">
-      import levelsJson from "/game-levels.json";
-      import { DESKTOP_GAME_PROFILE, MOBILE_GAME_PROFILE, GameMode } from "/src/game-profile.ts";
-      import { canPlaceTower } from "/src/placement-rules.ts";
-      import { createRouteMotionPath } from "/src/route-path.ts";
+      import init, { levelSheet } from "/src/generated/engine-labs/engine.js";
+
+      await init();
 
       const ROAD_COLOR = "rgba(8, 40, 36, 0.96)";
       const ROAD_BORDER_COLOR = "rgb(18, 61, 54)";
@@ -39,14 +38,15 @@ const html = String.raw`
 
       window.__levelRender = {
         render(mode) {
-          const profile = mode === GameMode.Mobile ? MOBILE_GAME_PROFILE : DESKTOP_GAME_PROFILE;
-          const levels = normalizeLevels(levelsJson, mode);
-          const cellPadding = mode === GameMode.Mobile ? 28 : 34;
-          const titleHeight = mode === GameMode.Mobile ? 56 : 58;
-          const footerHeight = mode === GameMode.Mobile ? 42 : 40;
+          const sheet = JSON.parse(levelSheet(mode === "mobile"));
+          const profile = { mode, fieldWidth: sheet.fieldWidth, fieldHeight: sheet.fieldHeight, roadWidth: sheet.roadWidth };
+          const levels = sheet.levels.map((level) => ({ ...level, points: level.points.map(([x, y]) => ({ x, y })) }));
+          const cellPadding = mode === "mobile" ? 28 : 34;
+          const titleHeight = mode === "mobile" ? 56 : 58;
+          const footerHeight = mode === "mobile" ? 42 : 40;
           const cellWidth = profile.fieldWidth + (cellPadding * 2);
           const cellHeight = profile.fieldHeight + titleHeight + footerHeight + (cellPadding * 2);
-          const columns = mode === GameMode.Mobile ? 2 : 2;
+          const columns = 2;
           const rows = Math.ceil(levels.length / columns);
           const width = columns * cellWidth;
           const height = rows * cellHeight;
@@ -63,9 +63,7 @@ const html = String.raw`
           for (const [index, level] of levels.entries()) {
             const column = index % columns;
             const row = Math.floor(index / columns);
-            const x = column * cellWidth;
-            const y = row * cellHeight;
-            metrics.push(drawLevel(context, level, profile, index, x, y, cellWidth, cellHeight, cellPadding, titleHeight, footerHeight));
+            metrics.push(drawLevel(context, level, profile, sheet.sample, index, column * cellWidth, row * cellHeight, cellWidth, cellHeight, cellPadding, titleHeight, footerHeight));
           }
 
           return {
@@ -75,30 +73,12 @@ const html = String.raw`
         },
       };
 
-      function normalizeLevels(data, mode) {
-        return data.map((level) => {
-          const normalized = mode !== GameMode.Mobile || !level.mobile
-            ? { ...level }
-            : { ...level, ...level.mobile };
-          delete normalized.mobile;
-          return {
-            ...normalized,
-            points: normalized.points.map(normalizeLevelPoint),
-          };
-        });
-      }
-
-      function normalizeLevelPoint(point) {
-        const [x, y] = point;
-        return { x, y };
-      }
-
-      function drawLevel(context, level, profile, index, x, y, cellWidth, cellHeight, cellPadding, titleHeight, footerHeight) {
+      function drawLevel(context, level, profile, sample, index, x, y, cellWidth, cellHeight, cellPadding, titleHeight, footerHeight) {
         const fieldX = x + cellPadding;
         const fieldY = y + titleHeight + cellPadding;
-        const routePath = createRouteMotionPath(level.points, profile.roadTurnRadius, profile.routeCurveSampleStep);
-        const placementMask = createPlacementMask(routePath, profile);
-        const pathLength = routePath.entries[routePath.entries.length - 1]?.totalDistance ?? 0;
+        const routePath = level;
+        const placementMask = createPlacementMask(level.blocked, profile, sample);
+        const pathLength = level.pathLength;
 
         drawCardBackground(context, x, y, cellWidth, cellHeight);
         drawTitle(context, level, index, x, y, cellWidth, titleHeight);
@@ -245,39 +225,31 @@ const html = String.raw`
 
       function traceRoutePath(context, routePath) {
         context.beginPath();
-        context.moveTo(routePath.start.x, routePath.start.y);
+        context.moveTo(routePath.start[0], routePath.start[1]);
         for (const command of routePath.commands) {
-          if (command.kind === "line") {
-            context.lineTo(command.point.x, command.point.y);
+          if (command.length === 2) {
+            context.lineTo(command[0], command[1]);
           } else {
-            context.quadraticCurveTo(command.control.x, command.control.y, command.point.x, command.point.y);
+            context.quadraticCurveTo(command[0], command[1], command[2], command[3]);
           }
         }
       }
 
-      function createPlacementMask(routePath, profile) {
+      // The engine samples placement on a grid (`levelSheet`); 1 marks a blocked cell.
+      function createPlacementMask(blocked, profile, sampleSize) {
         const blockedCells = [];
-        const sampleSize = 3;
-        const halfSample = sampleSize / 2;
+        const columns = Math.ceil(profile.fieldWidth / sampleSize);
         let validCells = 0;
-        let sampledCells = 0;
-        for (let y = 0; y < profile.fieldHeight; y += sampleSize) {
-          for (let x = 0; x < profile.fieldWidth; x += sampleSize) {
-            sampledCells += 1;
-            const point = {
-              x: x + halfSample,
-              y: y + halfSample,
-            };
-            if (!canPlaceTower(point, routePath, [], profile.placement)) {
-              blockedCells.push({ x, y, size: sampleSize });
-              continue;
-            }
+        for (let index = 0; index < blocked.length; index += 1) {
+          if (blocked[index] === "1") {
+            blockedCells.push({ x: (index % columns) * sampleSize, y: Math.floor(index / columns) * sampleSize, size: sampleSize });
+          } else {
             validCells += 1;
           }
         }
         return {
           blockedCells,
-          coverage: sampledCells === 0 ? 0 : validCells / sampledCells,
+          coverage: blocked.length === 0 ? 0 : validCells / blocked.length,
         };
       }
     </script>

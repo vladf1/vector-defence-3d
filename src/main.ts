@@ -2,6 +2,7 @@ import "./style.css";
 import { mount } from "svelte";
 import App from "./App.svelte";
 import { selectStartupGameProfile } from "./game-profile";
+import { loadEngine } from "./engine";
 import { prefetchGpuDevice } from "./gpu-device";
 
 const target = document.querySelector<HTMLDivElement>("#app");
@@ -20,10 +21,10 @@ window.addEventListener("resize", updateAppViewportHeight);
 window.visualViewport?.addEventListener("resize", updateAppViewportHeight);
 window.visualViewport?.addEventListener("scroll", updateAppViewportHeight);
 
-// Start acquiring the GPU and downloading the renderer while Svelte mounts; the session's
-// import reuses both and reports any failure.
+// Start acquiring the GPU and compiling the engine while Svelte mounts; the session reuses
+// both and reports any failure.
 prefetchGpuDevice();
-import("./render3d/webgpu-board-renderer").catch(() => undefined);
+loadEngine().catch(() => undefined);
 
 mount(App, {
   target,

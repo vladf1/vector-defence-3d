@@ -74,3 +74,6 @@ export const AudioCue = {
 } as const satisfies Record<string, AudioCueDefinition>;
 
 export type AudioCue = typeof AudioCue[keyof typeof AudioCue];
+
+/** Indexed by the engine's `AudioCue` discriminants (`crates/core/src/audio.rs`); keep the same order. */
+export const AUDIO_CUE_ORDER: readonly AudioCue[] = Object.values(AudioCue);

@@ -1,0 +1,102 @@
+[package]
+name = "vd-render"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Vector Defence raw-WebGPU board renderer with handwritten WGSL"
+
+[dependencies]
+vd-core.workspace = true
+
+# Native-only WGSL validation of every generated shader module (not part of the Wasm build).
+[dev-dependencies]
+naga = { version = "30", features = ["wgsl-in"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+js-sys.workspace = true
+web-sys = { workspace = true, features = [
+  "console",
+  "Window",
+  "Document",
+  "Element",
+  "HtmlCanvasElement",
+  "CanvasRenderingContext2d",
+  "TextMetrics",
+  "DomRect",
+  "Performance",
+  "Location",
+  "Navigator",
+  "Gpu",
+  "GpuAdapter",
+  "GpuDevice",
+  "GpuQueue",
+  "GpuBuffer",
+  "GpuBufferDescriptor",
+  "GpuCanvasContext",
+  "GpuCanvasConfiguration",
+  "GpuCanvasAlphaMode",
+  "GpuTextureFormat",
+  "GpuTexture",
+  "GpuTextureView",
+  "GpuTextureDescriptor",
+  "GpuTextureDimension",
+  "GpuTextureViewDescriptor",
+  "GpuSampler",
+  "GpuSamplerDescriptor",
+  "GpuFilterMode",
+  "GpuAddressMode",
+  "GpuShaderModule",
+  "GpuShaderModuleDescriptor",
+  "GpuBindGroup",
+  "GpuBindGroupDescriptor",
+  "GpuBindGroupEntry",
+  "GpuBufferBinding",
+  "GpuBindGroupLayout",
+  "GpuBindGroupLayoutDescriptor",
+  "GpuBindGroupLayoutEntry",
+  "GpuBufferBindingLayout",
+  "GpuBufferBindingType",
+  "GpuSamplerBindingLayout",
+  "GpuSamplerBindingType",
+  "GpuTextureBindingLayout",
+  "GpuTextureSampleType",
+  "GpuTextureViewDimension",
+  "GpuPipelineLayout",
+  "GpuPipelineLayoutDescriptor",
+  "GpuRenderPipeline",
+  "GpuRenderPipelineDescriptor",
+  "GpuVertexState",
+  "GpuVertexBufferLayout",
+  "GpuVertexAttribute",
+  "GpuVertexFormat",
+  "GpuVertexStepMode",
+  "GpuFragmentState",
+  "GpuColorTargetState",
+  "GpuBlendState",
+  "GpuBlendComponent",
+  "GpuBlendFactor",
+  "GpuBlendOperation",
+  "GpuPrimitiveState",
+  "GpuPrimitiveTopology",
+  "GpuCullMode",
+  "GpuFrontFace",
+  "GpuDepthStencilState",
+  "GpuCompareFunction",
+  "GpuMultisampleState",
+  "GpuCommandEncoder",
+  "GpuCommandEncoderDescriptor",
+  "GpuCommandBuffer",
+  "GpuRenderPassEncoder",
+  "GpuRenderPassDescriptor",
+  "GpuRenderPassColorAttachment",
+  "GpuRenderPassDepthStencilAttachment",
+  "GpuLoadOp",
+  "GpuStoreOp",
+  "GpuColorDict",
+  "GpuDeviceLostInfo",
+  "GpuExtent3dDict",
+  "GpuIndexFormat",
+] }

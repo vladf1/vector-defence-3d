@@ -1,5 +1,4 @@
 import { AudioCue, type AudioCue as AudioCueValue } from "./audio-manifest";
-import { FIELD_WIDTH } from "./constants";
 import { clamp } from "./utils";
 
 interface AudioCueOptions {
@@ -27,7 +26,7 @@ export class GameAudio {
   private reportedLoadFailures = new Set<AudioCueValue>();
   private enabled = true;
 
-  constructor(private readonly fieldWidth = FIELD_WIDTH) {
+  constructor(private readonly fieldWidth: number) {
   }
 
   setEnabled(enabled: boolean): void {

@@ -1,24 +1,11 @@
-import { AudioCue } from "./audio-manifest";
-import { findTowerShortcut } from "./entities/towers/tower-registry";
-import { createBrowserCampaignProgressStore } from "./campaign-progress";
+import { AUDIO_CUE_ORDER, AudioCue } from "./audio-manifest";
+import { loadEngine, type WebGame } from "./engine";
 import { type GameProfile } from "./game-profile";
 import { GameAudio } from "./game-audio";
-import type { BoardRenderer } from "./board-renderer";
-import { runBoundedSimulationSubsteps } from "./simulation-timing";
+import { takeGpuDevice } from "./gpu-device";
+import { INITIAL_HUD_SNAPSHOT, INITIAL_RUNTIME_HUD_STATS, type RuntimeHudStats } from "./initial-hud";
 import { RendererStatus } from "./renderer-status";
-import {
-  Game,
-  createLevels,
-} from "./game-engine";
-import {
-  INITIAL_HUD_SNAPSHOT,
-  INITIAL_RUNTIME_HUD_STATS,
-  createHudSnapshot,
-  createModalView,
-  performModalAction,
-  type RuntimeHudStats,
-} from "./game-view";
-import { type ModalAction, type ModalView, type Point, type TowerKind } from "./types";
+import { type HudSnapshot, type ModalAction, type ModalView, type Point, type TowerCatalogEntry, type TowerKind } from "./types";
 import { get, readonly, writable } from "svelte/store";
 
 const NERD_STATS_SAMPLE_MS = 500;
@@ -46,6 +33,9 @@ type ViewKeyAction =
 interface CanvasGeometry {
   rect: DOMRect;
 }
+
+/** Dev-only `?shaderSalt=N` defeats GPU shader caches so benchmarks can measure first-visit compiles. */
+const SHADER_SALT = import.meta.env.DEV ? Number(new URLSearchParams(window.location.search).get("shaderSalt") ?? 0) : 0;
 
 export interface BoardSurface {
   canvas: HTMLCanvasElement;
@@ -111,16 +101,35 @@ function getViewKeyAction(key: string): ViewKeyAction | null {
   }
 }
 
+function clientToField(currentGame: WebGame, clientX: number, clientY: number, rect: DOMRect): Point | null {
+  const point = currentGame.clientToField(clientX, clientY, rect.left, rect.top, rect.width, rect.height);
+  return point ? { x: point[0], y: point[1] } : null;
+}
+
+function setPointer(currentGame: WebGame, point: Point | null): void {
+  if (point) {
+    currentGame.setPointer(point.x, point.y);
+  } else {
+    currentGame.clearPointer();
+  }
+}
+
+function currentPointer(currentGame: WebGame): Point | null {
+  const point = currentGame.pointer();
+  return point ? { x: point[0], y: point[1] } : null;
+}
+
 export function createGameSession(profile: GameProfile) {
   const hudStore = writable(INITIAL_HUD_SNAPSHOT);
   const modalStore = writable<ModalView | null>(null);
   const soundEnabledStore = writable(true);
   const rendererStatusStore = writable<RendererStatus>(RendererStatus.Loading);
   const startupTimingsStore = writable<Record<string, number> | null>(null);
+  const towerCatalogStore = writable<readonly TowerCatalogEntry[]>([]);
   const audio = new GameAudio(profile.fieldWidth);
-  const progressStore = createBrowserCampaignProgressStore(window);
   let canvas: HTMLCanvasElement | null = null;
-  let game: Game | null = null;
+  let game: WebGame | null = null;
+  let destroyed = false;
   let mountToken = 0;
   let boardReady = false;
   let windowListenersAttached = false;
@@ -191,23 +200,40 @@ export function createGameSession(profile: GameProfile) {
     game?.draw();
   }
 
+  /** Plays the cues the engine queued (cue index, pan x or NaN, intensity or NaN per entry). */
+  const playQueuedSounds = (currentGame: WebGame): void => {
+    const sounds = currentGame.takeSounds();
+    for (let index = 0; index + 2 < sounds.length; index += 3) {
+      const cue = AUDIO_CUE_ORDER[sounds[index]];
+      const panX = sounds[index + 1];
+      const intensity = sounds[index + 2];
+      if (cue) {
+        audio.play(cue, {
+          panX: Number.isNaN(panX) ? undefined : panX,
+          intensity: Number.isNaN(intensity) ? undefined : intensity,
+        });
+      }
+    }
+  };
+
   const publish = (forceHud = false, forceModal = false): void => {
     if (!game) {
       return;
     }
 
-    if (forceHud || game.hudDirty) {
-      hudStore.set(createHudSnapshot(game, runtimeStats));
-      game.hudDirty = false;
+    playQueuedSounds(game);
+    const hud = game.takeHud(forceHud, runtimeStats.fps, runtimeStats.frameTimeMs, runtimeStats.updateTimeMs, runtimeStats.drawTimeMs);
+    if (hud !== undefined) {
+      hudStore.set(JSON.parse(hud) as HudSnapshot);
     }
 
-    if (forceModal || game.modalDirty) {
-      modalStore.set(createModalView(game));
-      game.modalDirty = false;
+    const modal = game.takeModal(forceModal);
+    if (modal !== undefined) {
+      modalStore.set(JSON.parse(modal) as ModalView | null);
     }
   };
 
-  const withGame = (action: (currentGame: Game) => void, force = false): void => {
+  const withGame = (action: (currentGame: WebGame) => void, force = false): void => {
     if (!game) {
       return;
     }
@@ -233,7 +259,7 @@ export function createGameSession(profile: GameProfile) {
       return null;
     }
 
-    return game.renderer.clientToField(event.clientX, event.clientY, geometry.rect);
+    return clientToField(game, event.clientX, event.clientY, geometry.rect);
   };
 
   const isPointerInsideCanvas = (event: PointerEvent): boolean => {
@@ -282,14 +308,9 @@ export function createGameSession(profile: GameProfile) {
     if (!hasPreviousFrame) {
       activeGame.updateSimulation(0);
     } else {
-      const substeps = runBoundedSimulationSubsteps(
-        pendingSimulationSeconds + elapsedSeconds,
-        (deltaSeconds) => {
-          activeGame.updateSimulation(deltaSeconds);
-          return activeGame.needsAnimationFrame();
-        },
-      );
-      pendingSimulationSeconds = activeGame.needsAnimationFrame() ? substeps.remainingSeconds : 0;
+      // Bounded substeps (at most 1/60 s each, capped catch-up) run inside the engine.
+      const remainingSeconds = activeGame.advance(pendingSimulationSeconds + elapsedSeconds);
+      pendingSimulationSeconds = activeGame.needsAnimationFrame() ? remainingSeconds : 0;
     }
     const drawStart = nerdStatsEnabled ? performance.now() : 0;
     activeGame.draw();
@@ -322,12 +343,14 @@ export function createGameSession(profile: GameProfile) {
     }
   }
 
-  const ensureGame = (): Game => {
-    if (game) {
+  const ensureGame = async (): Promise<WebGame | null> => {
+    const engine = await loadEngine();
+    if (game || destroyed) {
       return game;
     }
 
-    game = new Game(createLevels(profile.mode), audio, profile, progressStore);
+    game = new engine.WebGame(profile.mode === "mobile", Math.random() * 2 ** 32);
+    towerCatalogStore.set(JSON.parse(game.towerCatalog()) as TowerCatalogEntry[]);
     if (import.meta.env.DEV) {
       // Dev-only handle for render/benchmark scripts: mutate the game, then call sync().
       (window as unknown as { __vectorDefence?: unknown }).__vectorDefence = {
@@ -367,8 +390,8 @@ export function createGameSession(profile: GameProfile) {
     document.removeEventListener("visibilitychange", handleVisibilityChange);
   };
 
-  const attachRenderer = (activeGame: Game, renderer: BoardRenderer): void => {
-    activeGame.setRenderer(renderer);
+  const attachRenderer = (activeGame: WebGame, renderer: import("./engine").BoardRenderer): void => {
+    activeGame.attachRenderer(renderer);
     boardReady = true;
     refreshCanvasGeometry();
     activeGame.draw();
@@ -383,28 +406,29 @@ export function createGameSession(profile: GameProfile) {
     rendererStatusStore.set(RendererStatus.Failed);
   };
 
-  const mountBoardRenderer = (activeGame: Game, surface: BoardSurface, token: number): void => {
+  const mountBoardRenderer = (activeGame: WebGame, surface: BoardSurface, token: number): void => {
     rendererStatusStore.set(RendererStatus.Loading);
-    const importStartedAt = performance.now();
-    let importMs = 0;
-    void import("./render3d/webgpu-board-renderer")
-      .then(({ createWebGpuBoardRenderer }) => {
-        importMs = performance.now() - importStartedAt;
-        return createWebGpuBoardRenderer(surface.canvas, surface.overlay, activeGame, () => {
-          if (token === mountToken) {
+    const startedAt = performance.now();
+    let deviceMs = 0;
+    void Promise.all([loadEngine(), takeGpuDevice()])
+      .then(([engine, device]) => {
+        deviceMs = performance.now() - startedAt;
+        void device.lost.then(() => {
+          if (token === mountToken && game === activeGame) {
             // A lost device (driver reset, GPU process crash) gets a fresh renderer.
             boardReady = false;
             activeGame.detachRenderer();
             mountBoardRenderer(activeGame, surface, token);
           }
         });
+        return engine.createBoardRenderer(device, surface.canvas, surface.overlay, profile.mode === "mobile", SHADER_SALT);
       })
-      .then(({ renderer, startupTimings }) => {
+      .then((renderer) => {
         if (token !== mountToken || game !== activeGame) {
-          renderer.dispose();
+          renderer.free();
           return;
         }
-        const timings = { importMs, ...startupTimings, pageReadyMs: performance.now() };
+        const timings = { deviceMs, ...(JSON.parse(renderer.startupTimings()) as Record<string, number>), pageReadyMs: performance.now() };
         startupTimingsStore.set(timings);
         if (import.meta.env.DEV) {
           console.info("3D board startup (ms)", timings);
@@ -422,7 +446,6 @@ export function createGameSession(profile: GameProfile) {
   const mount = (surface: BoardSurface): void => {
     unmount();
 
-    const activeGame = ensureGame();
     const token = mountToken;
     canvas = surface.overlay;
     refreshCanvasGeometry();
@@ -441,10 +464,20 @@ export function createGameSession(profile: GameProfile) {
     }
     attachWindowListeners();
 
-    mountBoardRenderer(activeGame, surface, token);
-
-    resetFrameClock();
-    requestGameFrame();
+    void ensureGame()
+      .then((activeGame) => {
+        if (!activeGame || token !== mountToken) {
+          return;
+        }
+        mountBoardRenderer(activeGame, surface, token);
+        resetFrameClock();
+        requestGameFrame();
+      })
+      .catch((error: unknown) => {
+        if (token === mountToken) {
+          reportRendererFailure(error);
+        }
+      });
   };
 
   const unmount = (): void => {
@@ -456,7 +489,7 @@ export function createGameSession(profile: GameProfile) {
     canvas?.removeEventListener("wheel", handleBoardWheel);
     endBoardPan();
     lastPointerClient = null;
-    game?.setPointer();
+    game?.clearPointer();
     game?.detachRenderer();
     canvasGeometry = null;
     canvas = null;
@@ -478,7 +511,9 @@ export function createGameSession(profile: GameProfile) {
     resetFrameClock();
     runtimeStats = { ...INITIAL_RUNTIME_HUD_STATS };
     resetNerdStatsSamples();
+    game?.free();
     game = null;
+    destroyed = true;
   };
 
   const setNerdStatsEnabled = (enabled: boolean): void => {
@@ -529,7 +564,7 @@ export function createGameSession(profile: GameProfile) {
 
   const restart = (): void => {
     withGame((currentGame) => {
-      currentGame.playSound(AudioCue.UiClick);
+      audio.play(AudioCue.UiClick);
       currentGame.restart();
     }, true);
   };
@@ -566,8 +601,8 @@ export function createGameSession(profile: GameProfile) {
 
   const handleModalAction = (action: ModalAction): void => {
     withGame((currentGame) => {
-      currentGame.playSound(AudioCue.UiConfirm);
-      performModalAction(currentGame, action);
+      audio.play(AudioCue.UiConfirm);
+      currentGame.performModalAction(action);
     }, true);
   };
 
@@ -584,8 +619,7 @@ export function createGameSession(profile: GameProfile) {
     }
 
     if (lastPointerClient && canvasGeometry) {
-      const point = game.renderer.clientToField(lastPointerClient.x, lastPointerClient.y, canvasGeometry.rect);
-      game.setPointer(point ?? undefined);
+      setPointer(game, clientToField(game, lastPointerClient.x, lastPointerClient.y, canvasGeometry.rect));
     }
     if (frameId !== 0 || viewRedrawId !== 0) {
       return;
@@ -599,12 +633,12 @@ export function createGameSession(profile: GameProfile) {
     });
   };
 
-  const changeView = (change: (renderer: BoardRenderer, rect: DOMRect) => boolean): void => {
+  const changeView = (change: (currentGame: WebGame, rect: DOMRect) => boolean): void => {
     if (!game || !boardReady || !canvasGeometry) {
       return;
     }
 
-    if (change(game.renderer, canvasGeometry.rect)) {
+    if (change(game, canvasGeometry.rect)) {
       handleViewChanged();
     }
   };
@@ -612,13 +646,13 @@ export function createGameSession(profile: GameProfile) {
   const performViewKeyAction = (action: ViewKeyAction): void => {
     switch (action.kind) {
       case "tilt":
-        changeView((renderer) => renderer.tiltBy(action.radians));
+        changeView((currentGame) => currentGame.tiltBy(action.radians));
         break;
       case "zoom":
-        changeView((renderer, rect) => renderer.zoomAt(action.factor, rect.left + (rect.width / 2), rect.top + (rect.height / 2), rect));
+        changeView((currentGame, rect) => currentGame.zoomAt(action.factor, rect.left + (rect.width / 2), rect.top + (rect.height / 2), rect.left, rect.top, rect.width, rect.height));
         break;
       case "reset":
-        changeView((renderer) => renderer.resetView());
+        changeView((currentGame) => currentGame.resetView());
         break;
     }
   };
@@ -643,14 +677,14 @@ export function createGameSession(profile: GameProfile) {
         : 1;
     const pixels = delta * scale;
     if (event.shiftKey) {
-      changeView((renderer) => renderer.tiltBy(-pixels * TILT_RADIANS_PER_WHEEL_PIXEL));
+      changeView((currentGame) => currentGame.tiltBy(-pixels * TILT_RADIANS_PER_WHEEL_PIXEL));
       return;
     }
 
     // Trackpad pinches arrive as ctrl+wheel with small deltas.
     const zoomPerPixel = event.ctrlKey ? ZOOM_PER_PINCH_PIXEL : ZOOM_PER_WHEEL_PIXEL;
     const { clientX, clientY } = event;
-    changeView((renderer, rect) => renderer.zoomAt(Math.exp(-pixels * zoomPerPixel), clientX, clientY, rect));
+    changeView((currentGame, rect) => currentGame.zoomAt(Math.exp(-pixels * zoomPerPixel), clientX, clientY, rect.left, rect.top, rect.width, rect.height));
   }
 
   const activateBoardPan = (pointerId: number): void => {
@@ -692,7 +726,7 @@ export function createGameSession(profile: GameProfile) {
     const fromY = pan.lastClientY;
     pan.lastClientX = event.clientX;
     pan.lastClientY = event.clientY;
-    changeView((renderer, rect) => renderer.panBetween(fromX, fromY, event.clientX, event.clientY, rect));
+    changeView((currentGame, rect) => currentGame.panBetween(fromX, fromY, event.clientX, event.clientY, rect.left, rect.top, rect.width, rect.height));
     return true;
   };
 
@@ -718,7 +752,7 @@ export function createGameSession(profile: GameProfile) {
       return;
     }
 
-    game.setPointer(point);
+    setPointer(game, point);
   };
 
   const handleCanvasDown = (event: PointerEvent): void => {
@@ -743,12 +777,14 @@ export function createGameSession(profile: GameProfile) {
 
     event.preventDefault();
     // Outside build mode, a left press that keeps moving past the threshold pans the board.
-    if (viewControls && !game?.runtime.placingTower) {
+    if (viewControls && game?.placingTower() === undefined) {
       startBoardPan(event);
     }
-    game?.setPointer(point);
+    if (game) {
+      setPointer(game, point);
+    }
     withGame((currentGame) => {
-      currentGame.handleBoardClick(point);
+      currentGame.handleBoardClick(point.x, point.y);
     });
   };
 
@@ -767,9 +803,7 @@ export function createGameSession(profile: GameProfile) {
 
   const handleCanvasLeave = (): void => {
     lastPointerClient = null;
-    if (game) {
-      game.setPointer();
-    }
+    game?.clearPointer();
   };
 
   const endTowerDrag = (): void => {
@@ -804,12 +838,12 @@ export function createGameSession(profile: GameProfile) {
 
     event.preventDefault();
     const point = toCanvasPoint(event);
-    if (!point || !isPointerInsideCanvas(event)) {
-      game?.setPointer();
+    if (!game || !point || !isPointerInsideCanvas(event)) {
+      game?.clearPointer();
       return;
     }
 
-    game?.setPointer(point);
+    setPointer(game, point);
   }
 
   function handleTowerDragEnd(event: PointerEvent): void {
@@ -828,20 +862,20 @@ export function createGameSession(profile: GameProfile) {
     const isOnCanvas = isPointerInsideCanvas(event);
     const releasePoint = point && isOnCanvas
       ? point
-      : game?.runtime.pointer;
+      : currentPointer(game);
 
     if (wasActive) {
       event.preventDefault();
       if (releasePoint) {
-        game?.setPointer(releasePoint);
+        setPointer(game, releasePoint);
         withGame((currentGame) => {
-          if (!currentGame.placeTower(drag.kind, releasePoint)) {
+          if (!currentGame.placeTower(drag.kind, releasePoint.x, releasePoint.y)) {
             currentGame.cancelTowerPlacement();
           }
         });
       } else {
         cancelBuild();
-        game?.setPointer();
+        game.clearPointer();
       }
     }
 
@@ -855,7 +889,7 @@ export function createGameSession(profile: GameProfile) {
 
     if (towerDrag.active) {
       cancelBuild();
-      game?.setPointer();
+      game?.clearPointer();
     }
     endTowerDrag();
   }
@@ -950,7 +984,7 @@ export function createGameSession(profile: GameProfile) {
       return;
     }
 
-    const towerKind = findTowerShortcut(key, game.currentLevel?.availableTowers ?? []);
+    const towerKind = game.towerForShortcut(key) as TowerKind | undefined;
     if (!towerKind) {
       return;
     }
@@ -966,6 +1000,7 @@ export function createGameSession(profile: GameProfile) {
     soundEnabled: readonly(soundEnabledStore),
     rendererStatus: readonly(rendererStatusStore),
     startupTimings: readonly(startupTimingsStore),
+    towerCatalog: readonly(towerCatalogStore),
     toggleSound,
     setNerdStatsEnabled,
     mount,

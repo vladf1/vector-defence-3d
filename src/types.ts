@@ -45,6 +45,15 @@ export const ModalAction = {
 
 export type ModalAction = typeof ModalAction[keyof typeof ModalAction];
 
+/** Toolbar metadata from the engine's tower registry, in toolbar order. */
+export interface TowerCatalogEntry {
+  kind: TowerKind;
+  label: string;
+  summary: string;
+  baseCost: number;
+  shortcuts: string[];
+}
+
 export interface Point {
   x: number;
   y: number;

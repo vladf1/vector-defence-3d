@@ -1,0 +1,31 @@
+[workspace]
+resolver = "3"
+members = ["crates/core", "crates/render", "crates/web"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.98"
+publish = false
+
+[workspace.dependencies]
+vd-core = { path = "crates/core" }
+vd-render = { path = "crates/render" }
+wasm-bindgen = "=0.2.129"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = "0.3"
+console_error_panic_hook = "0.1"
+
+# The browser build: small, whole-program optimized, no unwinding tables. "z" measured 5%
+# smaller than "s" (gzip) with the same simulation and draw times in the crowded benchmark
+# fight: per-frame cost is dominated by GPU uploads, not by Rust code.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Native tests run seeded campaigns; keep them quick in debug builds.
+[profile.dev.package."*"]
+opt-level = 2

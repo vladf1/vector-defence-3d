@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { TOWER_CLASSES } from "../entities/towers/tower-registry";
   import { getGameSessionContext } from "../game-context";
   import type { TowerKind } from "../types";
   import { formatMoney } from "../utils";
@@ -9,6 +8,7 @@
   const profile = session.profile;
   const hud = session.hud;
   const modal = session.modal;
+  const towerCatalog = session.towerCatalog;
 
   function formatShortcuts(shortcuts: readonly string[]): string {
     return shortcuts.map((shortcut) => shortcut.toUpperCase()).join("/");
@@ -28,7 +28,7 @@
 <section class:selected-tower-controls={profile.mode === "mobile" && $hud.hasSelectedTower} class="controls-grid" inert={$modal !== null}>
   <div class="tower-strip-card">
     <div class="tower-strip">
-      {#each TOWER_CLASSES as towerClass (towerClass.kind)}
+      {#each $towerCatalog as towerClass (towerClass.kind)}
         {#if $hud.availableTowers.includes(towerClass.kind)}
           {@const shortcutText = formatShortcuts(towerClass.shortcuts)}
           {@const canAffordTower = $hud.affordableTowers[towerClass.kind]}

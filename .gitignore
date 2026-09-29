@@ -6,3 +6,5 @@ artifacts/
 .codex-vite.out.log
 .codex-vite.err.log
 .codex-vite.pid
+/target/
+src/generated/

@@ -1,0 +1,13 @@
+[package]
+name = "vd-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Vector Defence simulation: campaign, entities, engine, and HUD/modal view models"
+
+[build-dependencies]
+serde_json = "1"
+
+[dev-dependencies]
+serde_json = "1"

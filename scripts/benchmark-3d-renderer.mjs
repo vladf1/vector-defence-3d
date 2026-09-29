@@ -21,55 +21,7 @@ const report = await runBrowserPage({
 
   return page.evaluate(async (durationSeconds) => {
     const { game, sync } = window.__vectorDefence;
-    const renderer = game.renderer;
-    const pipelines = renderer.startupTimings.pipelines;
-
-    const { createMonster } = await import("/src/game-engine/monster-factory.ts");
-    const { createPathEntriesFromDistance } = await import("/src/route-path.ts");
-    game.debugAllLevelsUnlocked = true;
-    game.startLevelByIndex(9);
-    game.runtime.money = 999999;
-    game.runtime.escapesLeft = 99999;
-    const entries = game.runtime.routePath.entries;
-    const pathLength = entries[entries.length - 1].totalDistance;
-    const kinds = game.currentLevel.availableTowers;
-    const distanceToPath = (point) => entries.reduce((best, entry) => Math.min(best, Math.hypot(entry.x - point.x, entry.y - point.y)), Infinity);
-    let towerIndex = 0;
-    for (let y = 20; y < game.profile.fieldHeight - 10; y += 13) {
-      for (let x = 20; x < game.profile.fieldWidth - 10; x += 13) {
-        const point = { x, y };
-        const distance = distanceToPath(point);
-        if (distance < 26 || distance > 60 || !game.canPlaceTower(point)) {
-          continue;
-        }
-        const kind = kinds[towerIndex % kinds.length];
-        if (game.placeTower(kind, point)) {
-          const tower = game.runtime.towers[game.runtime.towers.length - 1];
-          for (let level = 0; level < 6; level += 1) {
-            tower.upgrade();
-          }
-          towerIndex += 1;
-        }
-      }
-    }
-    game.runtime.selectedTower = undefined;
-    const monsterKinds = ["packman", "square", "triangle", "tank", "runner", "splitter", "berserker", "bulwark"];
-    const refill = () => {
-      while (game.runtime.monsters.length < 160) {
-        const index = game.runtime.monsters.length;
-        const monster = createMonster(
-          monsterKinds[index % monsterKinds.length],
-          createPathEntriesFromDistance(entries, Math.random() * pathLength * 0.85),
-          game.profile.monsterSpeedScale,
-          9,
-        );
-        monster.hitPoints *= 6;
-        monster.maxHitPoints = monster.hitPoints;
-        game.runtime.monsters.push(monster);
-      }
-    };
-    refill();
-    game.runtime.spawnDelay = 0;
+    const towers = game.stageBenchmarkFight(9, 160, 6);
     sync();
 
     const drawSamples = [];
@@ -86,24 +38,25 @@ const report = await runBrowserPage({
         intervals.push(start - lastFrame);
       }
       lastFrame = start;
-      counts.particles += game.runtime.particles.length;
-      counts.links += game.runtime.links.length;
-      counts.instances += renderer.batches.drawnInstances;
-      counts.calls += renderer.frameDrawCalls;
+      const stats = JSON.parse(game.debugStats());
+      counts.particles += stats.particles;
+      counts.links += stats.links;
+      counts.instances += stats.instances;
+      counts.calls += stats.drawCalls;
       counts.frames += 1;
-      refill();
     };
     await new Promise((resolve) => setTimeout(resolve, durationSeconds * 1000));
     game.draw = originalDraw;
     game.togglePause();
     sync();
 
+    const stats = JSON.parse(game.debugStats());
     const sorted = [...drawSamples].sort((a, b) => a - b);
     const percentile = (p) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))] ?? 0;
     const average = (values) => values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
     return {
-      pipelines,
-      towers: game.runtime.towers.length,
+      pipelines: stats.pipelines,
+      towers,
       frames: counts.frames,
       averageDrawMs: average(drawSamples),
       p95DrawMs: percentile(0.95),
@@ -112,7 +65,7 @@ const report = await runBrowserPage({
       averageLinks: counts.links / Math.max(1, counts.frames),
       averageInstances: counts.instances / Math.max(1, counts.frames),
       averageDrawCalls: counts.calls / Math.max(1, counts.frames),
-      pixelRatio: renderer.pixelRatio,
+      pixelRatio: stats.pixelRatio,
     };
   }, seconds).then((result) => ({ readyMs, ...result }));
 });

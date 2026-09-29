@@ -1,0 +1,15 @@
+pub const FIELD_WIDTH: f64 = 800.0;
+pub const FIELD_HEIGHT: f64 = 450.0;
+pub const TOWER_RADIUS: f64 = 12.0;
+pub const TOWER_UPGRADE_RING_OFFSET: f64 = 1.2;
+pub const TOWER_UPGRADE_RING_GROWTH: f64 = 0.45;
+pub const TOWER_RANGE_UPGRADE_STEP: f64 = 4.0;
+pub const MAX_TOWER_LEVEL: u32 = 6;
+pub const UPGRADE_COST: i32 = 5;
+pub const ROAD_TURN_RADIUS: f64 = 24.0;
+pub const ROAD_WIDTH: f64 = 21.0;
+pub const TOWER_ROAD_EDGE_OVERLAP_ALLOWANCE: f64 = 0.5;
+pub const ROUTE_CURVE_SAMPLE_STEP: f64 = 7.0;
+pub const MAX_PARTICLES: usize = 2000;
+pub const MAX_LINKS: usize = 120;
+pub const TIMER_EPSILON_SECONDS: f64 = 1e-9;

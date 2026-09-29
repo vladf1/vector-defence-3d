@@ -29,57 +29,40 @@ const report = await runBrowserPage({
     await new Promise((resolve) => setTimeout(resolve, 150));
   });
 
-  const stage = await page.evaluate(async (level) => {
+  const stage = await page.evaluate((level) => {
     const { game, sync } = window.__vectorDefence;
-    const { createMonster } = await import("/src/game-engine/monster-factory.ts");
-    const { createPathEntriesFromDistance } = await import("/src/route-path.ts");
-    let seed = 7;
-    Math.random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
-
-    game.debugAllLevelsUnlocked = true;
-    game.startLevelByIndex(level);
-    game.runtime.money = 99999;
-    game.runtime.spawnDelay = 999;
-    game.runtime.escapesLeft = 999;
-    const entries = game.runtime.routePath.entries;
-    const pathLength = entries[entries.length - 1].totalDistance;
-    const kinds = game.currentLevel.availableTowers;
-    const distanceToPath = (point) => entries.reduce((best, entry) => Math.min(best, Math.hypot(entry.x - point.x, entry.y - point.y)), Infinity);
+    game.seedRandom(7);
+    game.debugStartLevel(level);
+    game.debugSetEconomy(99999, 999, 999);
+    const kinds = game.availableTowers();
     const placed = [];
     let kindIndex = 0;
-    for (let y = 26; y < game.profile.fieldHeight - 20 && placed.length < 12; y += 17) {
-      for (let x = 26; x < game.profile.fieldWidth - 20 && placed.length < 12; x += 17) {
-        const point = { x, y };
-        const distance = distanceToPath(point);
-        if (distance < 27 || distance > 36 || placed.some((other) => Math.hypot(other.x - x, other.y - y) < 64) || !game.canPlaceTower(point)) {
+    for (let y = 26; y < game.fieldHeight() - 20 && placed.length < 12; y += 17) {
+      for (let x = 26; x < game.fieldWidth() - 20 && placed.length < 12; x += 17) {
+        const distance = game.distanceToRoute(x, y);
+        if (distance < 27 || distance > 36 || placed.some((other) => Math.hypot(other.x - x, other.y - y) < 64) || !game.canPlaceTower(x, y)) {
           continue;
         }
         const kind = kinds[kindIndex % kinds.length];
-        if (game.placeTower(kind, point)) {
-          const tower = game.runtime.towers[game.runtime.towers.length - 1];
+        if (game.placeTower(kind, x, y)) {
           const level = (kindIndex * 2) % 7;
-          for (let upgrade = 0; upgrade < level; upgrade += 1) {
-            tower.upgrade();
-          }
+          game.debugUpgradeSelected(level);
           placed.push({ x, y, kind, level });
           kindIndex += 1;
         }
       }
     }
-    game.runtime.selectedTower = undefined;
+    game.debugClearSelection();
 
+    const pathLength = game.routeLength();
     const monsterKinds = ["packman", "square", "triangle", "tank", "runner", "splitter", "berserker", "bulwark"];
-    const lineup = [];
     monsterKinds.forEach((kind, index) => {
-      const distance = pathLength * (0.08 + (index * 0.1));
-      const monster = createMonster(kind, createPathEntriesFromDistance(entries, distance), game.profile.monsterSpeedScale, level);
-      monster.hitPoints = monster.maxHitPoints * (1 - (index * 0.09));
-      game.runtime.monsters.push(monster);
-      lineup.push({ kind, x: monster.x, y: monster.y });
+      const id = game.debugSpawnMonster(kind, pathLength * (0.08 + (index * 0.1)), level);
+      game.debugSetMonsterHitPoints(id, game.debugMonsterMaxHitPoints(id) * (1 - (index * 0.09)), Number.NaN);
     });
 
     sync();
-    return { placed, lineup };
+    return { placed };
   }, levelIndex);
 
   const step = async (seconds) => page.evaluate((duration) => {
@@ -88,9 +71,8 @@ const report = await runBrowserPage({
     for (let frame = 0; frame < frames; frame += 1) {
       game.updateSimulation(1 / 60);
     }
-    game.state = "paused";
+    game.debugSetState("paused");
     game.draw();
-    return game.runtime.monsters.length;
   }, seconds);
 
   const board = await page.locator(".board-depth").boundingBox();
@@ -108,93 +90,82 @@ const report = await runBrowserPage({
   });
   // Moves only the render camera (same pitch, closer) over a field point, draws, and restores.
   const closeUp = async (name, fieldX, fieldY, visibleHeight) => {
-    await page.evaluate(async ([x, y, height]) => {
+    await page.evaluate(([x, y, height]) => {
       const { game } = window.__vectorDefence;
-      const { BOARD_TILT_RADIANS } = await import("/src/render3d/camera-rig.ts");
-      game.renderer.inspect({ x, y, visibleHeight: height, yaw: 0, tilt: BOARD_TILT_RADIANS });
+      game.inspect(x, y, height, 0, game.boardTiltRadians());
       game.draw();
     }, [fieldX, fieldY, visibleHeight]);
     await capture(name, centerClip(Math.min(board.width, 560), Math.min(board.height, 420)));
     await page.evaluate(() => {
       const { game } = window.__vectorDefence;
-      game.renderer.inspect(null);
+      game.clearInspect();
       game.draw();
     });
   };
 
   await page.evaluate(() => {
-    window.__vectorDefence.game.state = "playing";
+    window.__vectorDefence.game.debugSetState("playing");
   });
   await step(1.4);
   await capture("overview");
-  const live = await page.evaluate(() => window.__vectorDefence.game.runtime.monsters
-    .filter((monster) => !monster.removed)
-    .map((monster) => ({ name: monster.constructor.name, x: monster.visualX, y: monster.visualY })));
+  const live = await page.evaluate(() => JSON.parse(window.__vectorDefence.game.debugMonsters())
+    .filter((monster) => !monster.removed));
   for (const monster of live) {
-    await closeUp(`monster-${monster.name}`, monster.x, monster.y, 46);
+    await closeUp(`monster-${monster.kind}`, monster.x, monster.y, 46);
   }
   for (const tower of stage.placed.slice(0, 8)) {
     await closeUp(`tower-${tower.kind}-${tower.level}`, tower.x, tower.y, 58);
   }
 
-  const blast = await page.evaluate(async () => {
+  const blast = await page.evaluate(() => {
     const { game } = window.__vectorDefence;
-    const { Missile } = await import("/src/entities/projectiles/missile.ts");
-    const { createMissileVisual } = await import("/src/entities/projectiles/missile-visuals.ts");
-    const target = game.runtime.monsters.find((monster) => !monster.removed);
+    const monsters = JSON.parse(game.debugMonsters()).filter((monster) => !monster.removed);
+    const target = monsters[0];
     if (!target) {
       return null;
     }
-    for (const monster of game.runtime.monsters) {
+    for (const monster of monsters) {
       if (Math.hypot(monster.x - target.x, monster.y - target.y) < 70) {
-        monster.hitPoints = 1;
+        game.debugSetMonsterHitPoints(monster.id, 1, Number.NaN);
       }
     }
-    game.runtime.missiles.push(new Missile({ x: target.x - 40, y: target.y - 40 }, target, 4, createMissileVisual(4)));
+    game.debugLaunchMissile(target.x - 40, target.y - 40, target.id, 4);
     return { x: target.x, y: target.y };
   });
   if (blast) {
     for (const [index, seconds] of [0.2, 0.06, 0.1, 0.16, 0.3, 0.5].entries()) {
-      await page.evaluate(() => { window.__vectorDefence.game.state = "playing"; });
+      await page.evaluate(() => { window.__vectorDefence.game.debugSetState("playing"); });
       await step(seconds);
       await closeUp(`explosion-${index}`, blast.x, blast.y, 190);
     }
   }
-  const tank = await page.evaluate(async () => {
+  const tank = await page.evaluate(() => {
     const { game } = window.__vectorDefence;
-    const { createMonster } = await import("/src/game-engine/monster-factory.ts");
-    const { createPathEntriesFromDistance } = await import("/src/route-path.ts");
-    const entries = game.runtime.routePath.entries;
-    const monster = createMonster("tank", createPathEntriesFromDistance(entries, entries[entries.length - 1].totalDistance * 0.45), game.profile.monsterSpeedScale, 6);
-    game.runtime.monsters.push(monster);
-    game.state = "playing";
+    const id = game.debugSpawnMonster("tank", game.routeLength() * 0.45, 6);
+    game.debugSetState("playing");
     for (let frame = 0; frame < 30; frame += 1) {
       game.updateSimulation(1 / 60);
     }
-    monster.hitPoints = 0;
+    const monster = JSON.parse(game.debugMonsters()).find((candidate) => candidate.id === id);
+    game.debugSetMonsterHitPoints(id, 0, Number.NaN);
     return { x: monster.x, y: monster.y };
   });
   for (const [index, seconds] of [0.05, 0.12, 0.25, 0.45].entries()) {
-    await page.evaluate(() => { window.__vectorDefence.game.state = "playing"; });
+    await page.evaluate(() => { window.__vectorDefence.game.debugSetState("playing"); });
     await step(seconds);
     await closeUp(`tank-death-${index}`, tank.x, tank.y, 150);
   }
 
-  const exit = await page.evaluate(async () => {
+  const exit = await page.evaluate(() => {
     const { game } = window.__vectorDefence;
-    const { createMonster } = await import("/src/game-engine/monster-factory.ts");
-    const { createPathEntriesFromDistance } = await import("/src/route-path.ts");
-    const entries = game.runtime.routePath.entries;
-    const end = entries[entries.length - 1];
-    const monster = createMonster("runner", createPathEntriesFromDistance(entries, end.totalDistance - 12), game.profile.monsterSpeedScale, 6);
-    monster.hitPoints = 1e9;
-    monster.maxHitPoints = 1e9;
-    game.runtime.monsters.push(monster);
-    game.state = "playing";
-    return { x: end.x, y: end.y };
+    const id = game.debugSpawnMonster("runner", game.routeLength() - 12, 6);
+    game.debugSetMonsterHitPoints(id, 1e9, 1e9);
+    game.debugSetState("playing");
+    const [x, y] = game.routeEnd();
+    return { x, y };
   });
   for (const [index, seconds] of [0.2, 0.1, 0.2, 0.4].entries()) {
-    await page.evaluate(() => { window.__vectorDefence.game.state = "playing"; });
+    await page.evaluate(() => { window.__vectorDefence.game.debugSetState("playing"); });
     await step(seconds);
     await closeUp(`breach-${index}`, exit.x, exit.y, 230);
   }
