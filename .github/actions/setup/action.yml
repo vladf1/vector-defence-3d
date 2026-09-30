@@ -1,0 +1,52 @@
+name: Set up the build toolchains
+description: >-
+  The Rust toolchain pinned in rust-toolchain.toml (with its wasm32 target) and a Cargo cache
+  per job; optionally Node with the npm dependencies and the prebuilt wasm-bindgen CLI.
+inputs:
+  cache-key:
+    description: Swatinem/rust-cache shared key. One per job, shared by the PR and deploy workflows.
+    required: true
+  node:
+    description: Install Node and the npm dependencies.
+    default: "false"
+  wasm-bindgen:
+    description: Install the wasm-bindgen CLI that matches the crate pin.
+    default: "false"
+runs:
+  using: composite
+  steps:
+    # rustup reads the channel, components and targets from rust-toolchain.toml.
+    - name: Install the pinned Rust toolchain
+      shell: bash
+      run: |
+        rustup toolchain install
+        rustup show active-toolchain
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: ${{ inputs.cache-key }}
+        cache-bin: false
+
+    # The release's prebuilt binary (a few seconds) instead of `cargo install` (about 90 s cold).
+    # The version must match the wasm-bindgen crate pin in Cargo.toml.
+    - name: Install wasm-bindgen-cli 0.2.129
+      if: inputs.wasm-bindgen == 'true'
+      shell: bash
+      run: |
+        name=wasm-bindgen-0.2.129-x86_64-unknown-linux-musl
+        cd "$RUNNER_TEMP"
+        curl -sSfLO "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/$name.tar.gz"
+        curl -sSfLO "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/$name.tar.gz.sha256sum"
+        sha256sum -c "$name.tar.gz.sha256sum"
+        tar -xzf "$name.tar.gz"
+        echo "$RUNNER_TEMP/$name" >> "$GITHUB_PATH"
+
+    - if: inputs.node == 'true'
+      uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+
+    - if: inputs.node == 'true'
+      shell: bash
+      run: npm ci

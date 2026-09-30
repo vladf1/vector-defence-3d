@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,6 +60,22 @@ export async function runBrowserPage(options, runPage) {
   } finally {
     await browser?.close();
     await server.close();
+  }
+}
+
+/**
+ * The dev server loads the labs engine, which the edit loop builds without whole-program LTO
+ * (`wasm-dev`). Timing scripts rebuild it with the `release` profile first so they measure what
+ * ships. Checkouts without the Rust engine (TypeScript baselines) are left as they are.
+ */
+export function buildReleaseEngine(root = repoRoot) {
+  const script = path.join(root, "scripts", "build-wasm.mjs");
+  if (!existsSync(script)) {
+    return;
+  }
+  const result = spawnSync(process.execPath, [script, "--release"], { cwd: root, stdio: "inherit" });
+  if (result.status !== 0) {
+    throw new Error("Release engine build failed.");
   }
 }
 
