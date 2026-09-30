@@ -85,7 +85,7 @@
         </button>
         {#if $hud.hasLaserLockAction}
           <button
-            class="action-button"
+            class="action-button lock"
             class:on={$hud.laserLocked}
             type="button"
             aria-label={$hud.laserLocked ? "Unlock beam direction" : "Lock beam direction"}

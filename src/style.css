@@ -750,6 +750,11 @@ kbd {
   background: rgba(63, 224, 255, 0.12);
 }
 
+/* Sized for "Locked" so toggling the lock does not resize the button. */
+.action-button.lock > span {
+  min-width: 6ch;
+}
+
 .action-button.close {
   padding: 0;
   color: var(--muted);
@@ -1263,21 +1268,45 @@ kbd {
     display: none;
   }
 
+  /* The dock keeps its full width; the card takes what is left and gives up text before it can overlap. */
   .app.desktop .dock-band {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .app.desktop .dock {
     grid-column: 1;
-    justify-self: start;
   }
 
   .app.desktop .selection {
     grid-column: 2;
+    justify-self: end;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .app.desktop .selection-actions {
+    flex: none;
+  }
+
+  .app.desktop .selection-text strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app.desktop .selection-text small {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 }
 
 @media (max-width: 900px) {
+  /* The active dock button already shows the tower, so the card's copy of the icon goes first. */
+  .app.desktop .selection-info .tower-icon {
+    display: none;
+  }
+
   .app.desktop .stat {
     padding: 7px 12px;
   }
@@ -1288,6 +1317,32 @@ kbd {
 
   .app.desktop .brand-level span {
     display: none;
+  }
+}
+
+/* ---------- Narrow desktops: the card keeps only its buttons, then the dock tightens ---------- */
+
+@media (max-width: 820px) {
+  .app.desktop .selection-info {
+    display: none;
+  }
+
+  .app.desktop .action-button.lock {
+    padding: 0;
+  }
+
+  .app.desktop .action-button.lock > span {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .app.desktop .dock {
+    gap: 4px;
+  }
+
+  .app.desktop .tower-button {
+    width: 60px;
   }
 }
 
