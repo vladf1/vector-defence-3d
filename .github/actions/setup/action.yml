@@ -37,7 +37,8 @@ runs:
         cd "$RUNNER_TEMP"
         curl -sSfLO "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/$name.tar.gz"
         curl -sSfLO "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/$name.tar.gz.sha256sum"
-        sha256sum -c "$name.tar.gz.sha256sum"
+        # The release's checksum file names the archive by its build path, so compare the hash only.
+        echo "$(cut -d ' ' -f 1 "$name.tar.gz.sha256sum")  $name.tar.gz" | sha256sum -c -
         tar -xzf "$name.tar.gz"
         echo "$RUNNER_TEMP/$name" >> "$GITHUB_PATH"
 
