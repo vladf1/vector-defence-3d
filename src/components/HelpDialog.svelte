@@ -37,6 +37,21 @@
     };
   }
 
+  /** Keeps Tab and Shift+Tab inside the dialog (everything behind it is inert as well). */
+  function containTab(event: KeyboardEvent & { currentTarget: HTMLElement }): void {
+    if (event.key !== "Tab") return;
+    const focusable = event.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled), [tabindex]:not([tabindex='-1'])");
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (!first || !last) return;
+    if (event.shiftKey && (document.activeElement === first || !event.currentTarget.contains(document.activeElement))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   function closeOnBackdrop(event: MouseEvent): void {
     if (event.target === event.currentTarget) {
       session.setHelpOpen(false);
@@ -47,7 +62,7 @@
 {#if $helpOpen}
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   <div class="overlay help-overlay" onclick={closeOnBackdrop} use:focusClose>
-    <div class="help panel" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div class="help panel" role="dialog" aria-modal="true" aria-labelledby="help-title" tabindex="-1" onkeydown={containTab}>
       <header class="help-header">
         <div>
           <span class="eyebrow">Field manual</span>

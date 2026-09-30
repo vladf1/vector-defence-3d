@@ -6,6 +6,7 @@
   const session = getGameSessionContext();
   const hud = session.hud;
   const modal = session.modal;
+  const helpOpen = session.helpOpen;
 
   onMount(() => () => {
     session.destroy();
@@ -19,7 +20,7 @@
 
 <svelte:window onkeydown={session.handleKeyDown} />
 
-<section class="board" inert={$modal !== null}>
+<section class="board" inert={$modal !== null || $helpOpen}>
   <BoardSurface />
   {#if $hud.banner}
     {#key $hud.banner.startsWith("NEXT WAVE") ? "countdown" : $hud.banner}

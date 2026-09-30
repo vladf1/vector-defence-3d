@@ -3,7 +3,7 @@
   import type { ModalView } from "../types";
 
   const session = getGameSessionContext();
-  const { modal } = session;
+  const { modal, helpOpen } = session;
   const STAR_VALUES = [1, 2, 3];
 
   function focusModal(element: HTMLDivElement, _view: ModalView) {
@@ -52,6 +52,7 @@
   <div
     class={`modal${$modal.sheet ? " sheet" : ""}`}
     role="dialog"
+    inert={$helpOpen}
     aria-modal="true"
     aria-label={$modal.title}
     tabindex="-1"

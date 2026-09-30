@@ -7,7 +7,7 @@
   let { element = $bindable() }: { element?: HTMLElement } = $props();
 
   const session = getGameSessionContext();
-  const { hud, modal, towerCatalog } = session;
+  const { hud, modal, helpOpen, towerCatalog } = session;
   const profile = session.profile;
   const mobile = profile.mode === "mobile";
 
@@ -32,8 +32,8 @@
   <span class="tower-icon" aria-hidden="true">{@html TOWER_ICON_SVG[kind]}</span>
 {/snippet}
 
-<footer class="dock-band" inert={$modal !== null} class:has-selection={$hud.hasSelectedTower}>
-  <div class="dock panel" bind:this={element} aria-label="Build towers">
+<footer class="dock-band" bind:this={element} inert={$modal !== null || $helpOpen} class:has-selection={$hud.hasSelectedTower}>
+  <div class="dock panel" aria-label="Build towers">
     {#each available as tower (tower.kind)}
       {@const affordable = $hud.affordableTowers[tower.kind]}
       <button

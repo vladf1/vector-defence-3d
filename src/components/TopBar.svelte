@@ -1,12 +1,13 @@
 <script lang="ts">
   import ControlIcon from "./ControlIcon.svelte";
+  import NerdStatsPanel from "./NerdStatsPanel.svelte";
   import { getGameSessionContext } from "../game-context";
   import { formatMoney } from "../utils";
 
   let { element = $bindable() }: { element?: HTMLElement } = $props();
 
   const session = getGameSessionContext();
-  const { hud, modal, soundEnabled } = session;
+  const { hud, modal, helpOpen, nerdStatsVisible, soundEnabled } = session;
   const mobile = session.profile.mode === "mobile";
 
   const pad = (value: number | undefined): string => (value === undefined ? "--" : String(value).padStart(2, "0"));
@@ -25,7 +26,7 @@
   const integrity = $derived(ratio($hud.escapesLeft, $hud.escapesAllowed));
 </script>
 
-<header class="topbar" bind:this={element} inert={$modal !== null}>
+<header class="topbar" bind:this={element} inert={$modal !== null || $helpOpen}>
   <div class="brand panel">
     <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
       <path d="M20 3L36 12V28L20 37L4 28V12Z" />
@@ -115,4 +116,8 @@
       <ControlIcon kind="home" />
     </button>
   </nav>
+
+  {#if $nerdStatsVisible}
+    <NerdStatsPanel />
+  {/if}
 </header>

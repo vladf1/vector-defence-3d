@@ -22,8 +22,10 @@
       { label: "Shots", value: $hud.nerdStats.shots },
       { label: "FX", value: $hud.nerdStats.effects },
     ] as stat (stat.label)}
-      <dt>{stat.label}</dt>
-      <dd>{stat.value}</dd>
+      <div>
+        <dt>{stat.label}</dt>
+        <dd>{stat.value}</dd>
+      </div>
     {/each}
   </dl>
 </section>

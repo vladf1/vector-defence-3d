@@ -760,44 +760,51 @@ kbd {
   cursor: default;
 }
 
-/* ---------- Nerd stats ---------- */
+/* ---------- Nerd stats: a strip across the top band (N), so it never covers the field ---------- */
 
 .nerd-panel {
-  position: absolute;
-  top: var(--hud-top);
-  left: max(var(--edge), env(safe-area-inset-left));
-  z-index: 9;
-  width: 210px;
-  padding: 10px 12px 12px;
+  grid-column: 1 / -1;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 100%;
+  padding: 6px 14px;
   pointer-events: none;
-  animation: card-in 200ms ease both;
+  animation: fade-in 200ms ease both;
 }
 
 .nerd-panel header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-  font-size: 0.6rem;
+  gap: 8px;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--neon);
+  white-space: nowrap;
 }
 
 .nerd-panel kbd {
-  padding: 1px 5px;
+  padding: 0 5px;
   border: 1px solid var(--line-strong);
   border-radius: 3px;
   color: var(--muted);
 }
 
 .nerd-panel dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
   margin: 0;
-  font: 0.74rem var(--font-mono);
+  font: 0.72rem var(--font-mono);
+}
+
+.nerd-panel dl > div {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .nerd-panel dt {
@@ -806,7 +813,6 @@ kbd {
 
 .nerd-panel dd {
   margin: 0;
-  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1346,7 +1352,7 @@ kbd {
 
 .app.mobile .dock,
 .app.mobile .selection {
-  grid-area: 1 / 1;
+  grid-column: 1;
 }
 
 .app.mobile .dock {
@@ -1396,13 +1402,23 @@ kbd {
   height: 44px;
 }
 
-/* While placing, the hint floats above the dock so the tower buttons stay usable. */
+/*
+ * The placement hint has its own reserved row above the dock: it is part of the measured band,
+ * so it never covers the field and the camera does not reframe when it appears, and the tower
+ * buttons stay usable below it.
+ */
+.app.mobile .dock-band {
+  grid-template-rows: 54px auto;
+  row-gap: 6px;
+}
+
+.app.mobile .dock,
+.app.mobile .selection:not(.placing) {
+  grid-row: 2;
+}
+
 .app.mobile .selection.placing {
-  grid-area: auto;
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(100% + 8px);
+  grid-row: 1;
 }
 
 .app.mobile .modal-panel,
@@ -1423,17 +1439,17 @@ kbd {
 }
 
 .app.mobile .nerd-panel {
-  width: 138px;
-  padding: 7px 9px 8px;
+  justify-self: stretch;
+  gap: 8px;
+  padding: 5px 8px;
 }
 
-.app.mobile .nerd-panel header {
-  margin-bottom: 5px;
-  font-size: 0.5rem;
+.app.mobile .nerd-panel header span {
+  display: none;
 }
 
 .app.mobile .nerd-panel dl {
-  gap: 1px 8px;
+  gap: 1px 10px;
   font-size: 0.6rem;
 }
 

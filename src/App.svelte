@@ -2,7 +2,6 @@
   import GameBoard from "./components/GameBoard.svelte";
   import GameModal from "./components/GameModal.svelte";
   import HelpDialog from "./components/HelpDialog.svelte";
-  import NerdStatsPanel from "./components/NerdStatsPanel.svelte";
   import TopBar from "./components/TopBar.svelte";
   import TowerDock from "./components/TowerDock.svelte";
   import { untrack } from "svelte";
@@ -18,29 +17,32 @@
 
   const { profile }: { profile: GameProfile } = $props();
   const session = untrack(() => createGameSession(profile));
-  const nerdStatsVisible = session.nerdStatsVisible;
   let app: HTMLDivElement | undefined = $state();
   let topBar: HTMLElement | undefined = $state();
-  let dock: HTMLElement | undefined = $state();
+  let dockBand: HTMLElement | undefined = $state();
 
   setGameSessionContext(session);
 
-  /** The canvas fills the screen; the camera frames the field between the top bar and the dock. */
+  /**
+   * The canvas fills the screen; the camera frames the field between the top bar and the dock
+   * band. Every HUD panel lives inside one of those two boxes (stats for nerds is a strip in the
+   * top bar; the mobile placement hint has a reserved row in the band), so none covers the field.
+   */
   function syncViewInsets(): void {
     if (!app) {
       return;
     }
     const frame = app.getBoundingClientRect();
     const top = topBar ? topBar.getBoundingClientRect().bottom - frame.top + FIELD_TOP_GAP : 0;
-    const bottom = dock && dock.offsetParent !== null ? frame.bottom - dock.getBoundingClientRect().top + FIELD_BOTTOM_GAP : 0;
-    // Floating HUD pieces (banner, nerd stats, placing hint) anchor to the same bands.
+    const bottom = dockBand ? frame.bottom - dockBand.getBoundingClientRect().top + FIELD_BOTTOM_GAP : 0;
+    // The wave banner anchors just below the top band.
     app.style.setProperty("--hud-top", `${top - FIELD_TOP_GAP + FIELD_BOTTOM_GAP}px`);
     app.style.setProperty("--hud-bottom", `${bottom}px`);
     session.setViewInsets(top, FIELD_SIDE_GAP, bottom, FIELD_SIDE_GAP);
   }
 
   $effect(() => {
-    const observed = [app, topBar, dock].filter((element): element is HTMLElement => element !== undefined);
+    const observed = [app, topBar, dockBand].filter((element): element is HTMLElement => element !== undefined);
     const observer = new ResizeObserver(syncViewInsets);
     for (const element of observed) {
       observer.observe(element);
@@ -61,10 +63,7 @@
   {/if}
   <GameBoard />
   <TopBar bind:element={topBar} />
-  <TowerDock bind:element={dock} />
-  {#if $nerdStatsVisible}
-    <NerdStatsPanel />
-  {/if}
+  <TowerDock bind:element={dockBand} />
   <GameModal />
   <HelpDialog />
 </div>
