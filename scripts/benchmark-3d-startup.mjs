@@ -1,7 +1,9 @@
 // Profiles the board's startup phases (renderer import, device, CPU setup, pipeline
 // compiles, warm-up frame, GPU drain) with optional CPU throttling to approximate phones.
 // Usage: node scripts/benchmark-3d-startup.mjs [--mobile] [--cpu=4] [--runs=3] [--cold]
-import { WEBGPU_LAUNCH_ARGS, runBrowserPage } from "./benchmark-browser-harness.mjs";
+import { WEBGPU_LAUNCH_ARGS, buildReleaseEngine, runBrowserPage } from "./benchmark-browser-harness.mjs";
+
+buildReleaseEngine();
 
 const mobile = process.argv.includes("--mobile");
 const numberArgument = (name, fallback) => {
