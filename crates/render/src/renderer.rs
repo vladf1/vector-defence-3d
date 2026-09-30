@@ -229,6 +229,17 @@ impl BoardRenderer {
         self.overlay.resize(&mut self.overlay_layout, self.width, self.height, pixel_ratio);
     }
 
+    /// Frames the field inside the part of the canvas the page's HUD leaves uncovered (CSS
+    /// pixels: top, right, bottom, left); the ground still renders under the HUD. Returns
+    /// whether the framing changed.
+    pub fn set_view_insets(&mut self, top: f32, right: f32, bottom: f32, left: f32) -> bool {
+        if !self.composer.rig.set_insets(top, right, bottom, left) {
+            return false;
+        }
+        self.composer.sync_view_direction();
+        true
+    }
+
     /// Draws one frame of `game`: governor, runtime switch, batch refill (board, entity views,
     /// fx), camera shake, the GPU frame, then the 2D overlay.
     pub fn draw(&mut self, game: &Game) {

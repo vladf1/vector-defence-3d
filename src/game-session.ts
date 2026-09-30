@@ -126,6 +126,12 @@ export function createGameSession(profile: GameProfile) {
   const rendererStatusStore = writable<RendererStatus>(RendererStatus.Loading);
   const startupTimingsStore = writable<Record<string, number> | null>(null);
   const towerCatalogStore = writable<readonly TowerCatalogEntry[]>([]);
+  const helpOpenStore = writable(false);
+  const nerdStatsVisibleStore = writable(false);
+  /** HUD insets (CSS pixels: top, right, bottom, left) the camera frames the field inside. */
+  let viewInsets: readonly [number, number, number, number] = [0, 0, 0, 0];
+  /** Whether opening the help dialog paused a running battle (so closing it resumes). */
+  let helpPausedBattle = false;
   const audio = new GameAudio(profile.fieldWidth);
   let canvas: HTMLCanvasElement | null = null;
   let game: WebGame | null = null;
@@ -392,6 +398,7 @@ export function createGameSession(profile: GameProfile) {
 
   const attachRenderer = (activeGame: WebGame, renderer: import("./engine").BoardRenderer): void => {
     activeGame.attachRenderer(renderer);
+    activeGame.setViewInsets(...viewInsets);
     boardReady = true;
     refreshCanvasGeometry();
     activeGame.draw();
@@ -527,6 +534,55 @@ export function createGameSession(profile: GameProfile) {
     }
 
     resetNerdStatsSamples();
+  };
+
+  const toggleNerdStats = (): void => {
+    const visible = !get(nerdStatsVisibleStore);
+    nerdStatsVisibleStore.set(visible);
+    setNerdStatsEnabled(visible);
+  };
+
+  /** Opens or closes the how-to-play dialog; a running battle pauses while it is open. */
+  const setHelpOpen = (open: boolean): void => {
+    if (open === get(helpOpenStore)) {
+      return;
+    }
+    helpOpenStore.set(open);
+    if (!game) {
+      return;
+    }
+    if (open) {
+      helpPausedBattle = game.canPerformBattleAction();
+      if (helpPausedBattle) {
+        endTowerDrag();
+        withGame((currentGame) => currentGame.togglePause(), true);
+      }
+    } else if (helpPausedBattle) {
+      helpPausedBattle = false;
+      const hud = get(hudStore);
+      if (hud.paused) {
+        withGame((currentGame) => currentGame.togglePause(), true);
+      }
+    }
+  };
+
+  /** The page's HUD covers these CSS-pixel bands of the board; the field is framed in the rest. */
+  const setViewInsets = (top: number, right: number, bottom: number, left: number): void => {
+    viewInsets = [top, right, bottom, left];
+    if (game && boardReady && game.setViewInsets(top, right, bottom, left)) {
+      if (lastPointerClient && canvasGeometry) {
+        setPointer(game, clientToField(game, lastPointerClient.x, lastPointerClient.y, canvasGeometry.rect));
+      }
+      if (frameId === 0) {
+        game.draw();
+      }
+    }
+  };
+
+  const deselectTower = (): void => {
+    withGame((currentGame) => {
+      currentGame.deselectTower();
+    });
   };
 
   const toggleSound = (): void => {
@@ -922,6 +978,27 @@ export function createGameSession(profile: GameProfile) {
   };
 
   const handleKeyDown = (event: KeyboardEvent): void => {
+    if (!event.defaultPrevented && !event.altKey && !event.ctrlKey && !event.metaKey && !isTextEntryEvent(event)) {
+      const helpOpen = get(helpOpenStore);
+      if (event.key === "?" || (!event.repeat && event.key.toLowerCase() === "h" && !event.shiftKey)) {
+        event.preventDefault();
+        setHelpOpen(!helpOpen);
+        return;
+      }
+      if (helpOpen) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setHelpOpen(false);
+        }
+        return;
+      }
+      if (!event.repeat && !event.shiftKey && event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        toggleNerdStats();
+        return;
+      }
+    }
+
     // View keys stay with the page (and modal scrolling) while a modal covers the board.
     const viewAction = profile.ui.allowViewControls && get(modalStore) === null ? getViewKeyAction(event.key) : null;
     if (viewAction) {
@@ -1001,6 +1078,12 @@ export function createGameSession(profile: GameProfile) {
     rendererStatus: readonly(rendererStatusStore),
     startupTimings: readonly(startupTimingsStore),
     towerCatalog: readonly(towerCatalogStore),
+    helpOpen: readonly(helpOpenStore),
+    nerdStatsVisible: readonly(nerdStatsVisibleStore),
+    setHelpOpen,
+    toggleNerdStats,
+    setViewInsets,
+    deselectTower,
     toggleSound,
     setNerdStatsEnabled,
     mount,

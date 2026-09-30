@@ -530,6 +530,13 @@ impl Game {
         tower
     }
 
+    /// Clears the tower selection (the HUD's close button).
+    pub fn clear_selection(&mut self) {
+        if self.runtime.selected_tower.take().is_some() {
+            self.request_hud_sync();
+        }
+    }
+
     pub fn select_tower_at(&mut self, point: Point) {
         if !self.can_perform_battle_action() {
             return;

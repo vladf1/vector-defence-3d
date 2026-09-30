@@ -3,7 +3,7 @@
   import type { ModalView } from "../types";
 
   const session = getGameSessionContext();
-  const { modal } = session;
+  const { modal, helpOpen } = session;
   const STAR_VALUES = [1, 2, 3];
 
   function focusModal(element: HTMLDivElement, _view: ModalView) {
@@ -38,7 +38,7 @@
 
 {#snippet modalActions(view: ModalView)}
   {#if view.actions.length > 0}
-    <div class="selection-actions">
+    <div class="modal-actions">
       {#each view.actions as item}
         <button class={`modal-button modal-action-${item.action}`} type="button" onclick={() => session.handleModalAction(item.action)}>
           {item.label}
@@ -52,14 +52,16 @@
   <div
     class={`modal${$modal.sheet ? " sheet" : ""}`}
     role="dialog"
+    inert={$helpOpen}
     aria-modal="true"
     aria-label={$modal.title}
     tabindex="-1"
     use:focusModal={$modal}
     onkeydown={containTab}
   >
-    <div class={`modal-panel${$modal.sheet ? " modal-sheet" : ""}${$modal.levelCards ? " level-map-panel" : ""}`}>
+    <div class={`modal-panel panel${$modal.sheet ? " modal-sheet" : ""}${$modal.levelCards ? " level-map-panel" : ""}`}>
       {#if !$modal.levelCards}
+        <span class="eyebrow">{$modal.starAward ? "Mission report" : "Mission failed"}</span>
         <h2>{$modal.title}</h2>
         <p>{$modal.description}</p>
 
@@ -83,6 +85,7 @@
       {:else}
         <div class="level-map-header">
           <div>
+            <span class="eyebrow">Vector Defence</span>
             <h2>{$modal.title}</h2>
             <p>{$modal.description}</p>
           </div>
@@ -98,9 +101,10 @@
               disabled={!item.unlocked}
               onclick={() => session.selectLevel(item.index)}
             >
+              <span class="level-index" aria-hidden="true">{String(item.index + 1).padStart(2, "0")}</span>
               <div class="level-card-heading">
-                <strong>{item.title}</strong>
-                <span class="level-pill">{item.status}</span>
+                <strong aria-label={item.title}>{item.name}</strong>
+                <span class={`level-pill status-${item.status.toLowerCase()}`}>{item.status}</span>
               </div>
               {#if item.stars > 0}
                 <span class="level-stars" aria-label={item.starsLabel}>

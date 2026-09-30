@@ -17,8 +17,6 @@ export interface GameProfile {
   fieldAspectScale: number;
   ui: {
     showShortcutLabels: boolean;
-    showTitle: boolean;
-    showFootnote: boolean;
     portraitOnly: boolean;
     /** Board camera controls: drag to pan, wheel/pinch to zoom, Shift+wheel or up/down to tilt. */
     allowViewControls: boolean;
@@ -38,16 +36,12 @@ function createProfile(mode: GameMode, fieldWidth: number, fieldHeight: number, 
 
 export const DESKTOP_GAME_PROFILE = createProfile(GameMode.Desktop, 800, 450, {
   showShortcutLabels: true,
-  showTitle: true,
-  showFootnote: true,
   portraitOnly: false,
   allowViewControls: true,
 });
 
 export const MOBILE_GAME_PROFILE = createProfile(GameMode.Mobile, 390, 560, {
   showShortcutLabels: false,
-  showTitle: false,
-  showFootnote: false,
   portraitOnly: true,
   allowViewControls: false,
 });

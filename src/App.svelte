@@ -1,49 +1,69 @@
 <script lang="ts">
-  import ChromeBar from "./components/ChromeBar.svelte";
   import GameBoard from "./components/GameBoard.svelte";
-  import NerdStatsPanel from "./components/NerdStatsPanel.svelte";
-  import TowerPanel from "./components/TowerPanel.svelte";
+  import GameModal from "./components/GameModal.svelte";
+  import HelpDialog from "./components/HelpDialog.svelte";
+  import TopBar from "./components/TopBar.svelte";
+  import TowerDock from "./components/TowerDock.svelte";
   import { untrack } from "svelte";
   import { setGameSessionContext } from "./game-context";
   import type { GameProfile } from "./game-profile";
   import { createGameSession } from "./game-session";
 
+  // Breathing room between the HUD and the framed field, in CSS pixels. The top needs more:
+  // the spawn gate and towers on the field's far edge stand up into the view.
+  const FIELD_TOP_GAP = 30;
+  const FIELD_BOTTOM_GAP = 12;
+  const FIELD_SIDE_GAP = 14;
+
   const { profile }: { profile: GameProfile } = $props();
   const session = untrack(() => createGameSession(profile));
-  const modal = session.modal;
-  let showNerdStats = $state(false);
-
-  function toggleNerdStats(): void {
-    showNerdStats = !showNerdStats;
-    session.setNerdStatsEnabled(showNerdStats);
-  }
+  let app: HTMLDivElement | undefined = $state();
+  let topBar: HTMLElement | undefined = $state();
+  let dockBand: HTMLElement | undefined = $state();
 
   setGameSessionContext(session);
+
+  /**
+   * The canvas fills the screen; the camera frames the field between the top bar and the dock
+   * band. Every HUD panel lives inside one of those two boxes (stats for nerds is a strip in the
+   * top bar; the mobile placement hint has a reserved row in the band), so none covers the field.
+   */
+  function syncViewInsets(): void {
+    if (!app) {
+      return;
+    }
+    const frame = app.getBoundingClientRect();
+    const top = topBar ? topBar.getBoundingClientRect().bottom - frame.top + FIELD_TOP_GAP : 0;
+    const bottom = dockBand ? frame.bottom - dockBand.getBoundingClientRect().top + FIELD_BOTTOM_GAP : 0;
+    // The wave banner anchors just below the top band.
+    app.style.setProperty("--hud-top", `${top - FIELD_TOP_GAP + FIELD_BOTTOM_GAP}px`);
+    app.style.setProperty("--hud-bottom", `${bottom}px`);
+    session.setViewInsets(top, FIELD_SIDE_GAP, bottom, FIELD_SIDE_GAP);
+  }
+
+  $effect(() => {
+    const observed = [app, topBar, dockBand].filter((element): element is HTMLElement => element !== undefined);
+    const observer = new ResizeObserver(syncViewInsets);
+    for (const element of observed) {
+      observer.observe(element);
+    }
+    syncViewInsets();
+    return () => observer.disconnect();
+  });
 </script>
 
-<div
-  class={`shell ${profile.mode === "mobile" ? "mobile-shell" : ""}${showNerdStats ? " nerd-stats-open" : ""}`}
-  style={`--field-aspect-scale: ${profile.fieldAspectScale};`}
->
+<svelte:window onresize={syncViewInsets} />
+
+<div class={`app ${profile.mode === "mobile" ? "mobile" : "desktop"}`} bind:this={app}>
   {#if profile.ui.portraitOnly}
     <div class="orientation-blocker">
       <strong>Rotate to portrait</strong>
       <span>Vector Defence mobile is tuned for upright play.</span>
     </div>
   {/if}
-  <ChromeBar />
   <GameBoard />
-  <TowerPanel />
-
-  {#if profile.ui.showFootnote}
-    <p class="footnote" inert={$modal !== null}>
-      Tip: press the tower keys shown on available buttons, <strong>U</strong> to upgrade, <strong>Esc</strong> to cancel build mode, and <strong>Space</strong> to pause or resume. Drag the board to pan, scroll to zoom, <strong>Shift</strong>+scroll or <strong>↑</strong>/<strong>↓</strong> to tilt, and <strong>0</strong> to reset the view.
-      <button class="footnote-link" type="button" onclick={toggleNerdStats}>
-        {showNerdStats ? "Hide" : "Show"} stats for nerds
-      </button>
-    </p>
-  {/if}
-  {#if profile.ui.showFootnote && showNerdStats}
-    <NerdStatsPanel />
-  {/if}
+  <TopBar bind:element={topBar} />
+  <TowerDock bind:element={dockBand} />
+  <GameModal />
+  <HelpDialog />
 </div>

@@ -67,9 +67,21 @@ impl Default for CameraState {
 }
 
 impl CameraState {
-    /// Takes effect with the next `look_at` or `copy_orientation`.
-    pub fn set_perspective(&mut self, vertical_fov_radians: f32, aspect: f32, near: f32, far: f32) {
+    /// Takes effect with the next `look_at` or `copy_orientation`. `lens_shift` moves the
+    /// principal point in NDC (an off-center frustum), so the view axis lands off the canvas
+    /// center without changing the field of view.
+    pub fn set_perspective(
+        &mut self,
+        vertical_fov_radians: f32,
+        aspect: f32,
+        near: f32,
+        far: f32,
+        lens_shift: (f32, f32),
+    ) {
         mat4_perspective(&mut self.projection, vertical_fov_radians, aspect, near, far);
+        // clip.xy += shift * clip.w, where clip.w = -view.z.
+        self.projection[8] -= lens_shift.0;
+        self.projection[9] -= lens_shift.1;
     }
 
     pub fn look_at(&mut self, eye: Vec3, target: Vec3, up: Vec3) {
@@ -153,8 +165,20 @@ pub struct CameraRig {
     shake_time: f32,
     viewport_width: f32,
     viewport_height: f32,
+    /// CSS pixels covered by the page's HUD (top, right, bottom, left); the field is framed in
+    /// the rest (the safe area) while the ground keeps rendering under the HUD.
+    insets: [f32; 4],
     visible_bounds: FieldBounds,
     inspection: Option<InspectView>,
+}
+
+/// The safe area in NDC: its center (the lens shift) and half extents.
+#[derive(Clone, Copy, Debug)]
+struct SafeArea {
+    center_x: f32,
+    center_y: f32,
+    half_x: f32,
+    half_y: f32,
 }
 
 impl CameraRig {
@@ -178,6 +202,7 @@ impl CameraRig {
             shake_time: 0.0,
             viewport_width: 1.0,
             viewport_height: 1.0,
+            insets: [0.0; 4],
             visible_bounds: FieldBounds {
                 min_x: 0.0,
                 min_y: 0.0,
@@ -284,12 +309,49 @@ impl CameraRig {
         self.sync_render_camera(0.0, 0.0);
     }
 
+    /// Sets the HUD insets (CSS pixels: top, right, bottom, left) and re-frames the field inside
+    /// the remaining safe area. Returns whether they changed.
+    pub fn set_insets(&mut self, top: f32, right: f32, bottom: f32, left: f32) -> bool {
+        let insets = [top.max(0.0), right.max(0.0), bottom.max(0.0), left.max(0.0)];
+        if insets == self.insets {
+            return false;
+        }
+        self.insets = insets;
+        self.resize(self.viewport_width, self.viewport_height);
+        true
+    }
+
+    /// The safe area in NDC; insets that would leave less than a fifth of the view are scaled back.
+    fn safe_area(&self) -> SafeArea {
+        let [top, right, bottom, left] = self.insets;
+        let horizontal = (left + right) / self.viewport_width;
+        let vertical = (top + bottom) / self.viewport_height;
+        let scale_x = if horizontal > 0.8 { 0.8 / horizontal } else { 1.0 };
+        let scale_y = if vertical > 0.8 { 0.8 / vertical } else { 1.0 };
+        let min_x = -1.0 + 2.0 * left * scale_x / self.viewport_width;
+        let max_x = 1.0 - 2.0 * right * scale_x / self.viewport_width;
+        let min_y = -1.0 + 2.0 * bottom * scale_y / self.viewport_height;
+        let max_y = 1.0 - 2.0 * top * scale_y / self.viewport_height;
+        SafeArea {
+            center_x: (min_x + max_x) / 2.0,
+            center_y: (min_y + max_y) / 2.0,
+            half_x: (max_x - min_x) / 2.0,
+            half_y: (max_y - min_y) / 2.0,
+        }
+    }
+
+    fn lens_shift(&self) -> (f32, f32) {
+        let safe = self.safe_area();
+        (safe.center_x, safe.center_y)
+    }
+
     pub fn resize(&mut self, width: f32, height: f32) {
         self.viewport_width = width.max(1.0);
         self.viewport_height = height.max(1.0);
         self.aspect = self.viewport_width / self.viewport_height;
-        self.logical_camera.set_perspective(self.vertical_fov, self.aspect, NEAR, FAR);
-        self.render_camera.set_perspective(self.vertical_fov, self.aspect, NEAR, FAR);
+        let shift = self.lens_shift();
+        self.logical_camera.set_perspective(self.vertical_fov, self.aspect, NEAR, FAR, shift);
+        self.render_camera.set_perspective(self.vertical_fov, self.aspect, NEAR, FAR, shift);
         // Gameplay bounds (placement, culling) always come from the default framing, so the
         // player's view changes only what the camera shows, never the rules.
         self.fit_field(self.options.pitch_radians);
@@ -382,9 +444,11 @@ impl CameraRig {
         self.offset_direction.y = pitch.cos();
         self.offset_direction.z = pitch.sin();
         let limit = 1.0 - margin;
+        let safe = self.safe_area();
         self.target = vec3(field_width / 2.0, 0.0, field_height / 2.0);
         let half_fov = self.vertical_fov / 2.0;
-        self.distance = field_height.max(field_width / self.aspect) / 2.0 / half_fov.tan();
+        self.distance =
+            (field_height / safe.half_y).max(field_width / self.aspect / safe.half_x) / 2.0 / half_fov.tan();
 
         let corners = [(0.0, 0.0), (field_width, 0.0), (0.0, field_height), (field_width, field_height)];
         for _ in 0..FIT_ITERATIONS {
@@ -398,8 +462,9 @@ impl CameraRig {
                 min_y = min_y.min(projected.y);
                 max_y = max_y.max(projected.y);
             }
-            let extent = ((max_x - min_x) / 2.0).max((max_y - min_y) / 2.0);
-            let center_y = (max_y + min_y) / 2.0;
+            // Extents relative to the safe area, which the lens shift already centers on.
+            let extent = ((max_x - min_x) / 2.0 / safe.half_x).max((max_y - min_y) / 2.0 / safe.half_y);
+            let center_y = (max_y + min_y) / 2.0 - safe.center_y;
             // Screen-up is -Z; shift the target so the projected field sits centered.
             let world_per_ndc = half_fov.tan() * self.distance;
             self.target.z -= center_y * world_per_ndc * 0.9;
@@ -410,21 +475,27 @@ impl CameraRig {
         self.fit_distance = self.distance;
     }
 
+    /// Gameplay bounds: the largest axis-aligned rectangle inside the ground visible in the safe
+    /// area (not under the HUD), limited to the field itself. A wide screen shows more ground
+    /// around the field, but the playable area stays the authored one.
     fn update_visible_bounds(&mut self) {
+        let safe = self.safe_area();
+        let (left, right) = (safe.center_x - safe.half_x, safe.center_x + safe.half_x);
+        let (bottom, top) = (safe.center_y - safe.half_y, safe.center_y + safe.half_y);
         let (Some(top_left), Some(top_right), Some(bottom_left), Some(bottom_right)) = (
-            self.ndc_to_ground(-1.0, 1.0),
-            self.ndc_to_ground(1.0, 1.0),
-            self.ndc_to_ground(-1.0, -1.0),
-            self.ndc_to_ground(1.0, -1.0),
+            self.ndc_to_ground(left, top),
+            self.ndc_to_ground(right, top),
+            self.ndc_to_ground(left, bottom),
+            self.ndc_to_ground(right, bottom),
         ) else {
             return;
         };
-        // Largest axis-aligned rectangle inside the visible trapezoid.
+        let (field_width, field_height) = (self.options.field_width as f64, self.options.field_height as f64);
         self.visible_bounds = FieldBounds {
-            min_x: top_left.x.max(bottom_left.x),
-            max_x: top_right.x.min(bottom_right.x),
-            min_y: top_left.y.max(top_right.y),
-            max_y: bottom_left.y.min(bottom_right.y),
+            min_x: top_left.x.max(bottom_left.x).max(0.0),
+            max_x: top_right.x.min(bottom_right.x).min(field_width),
+            min_y: top_left.y.max(top_right.y).max(0.0),
+            max_y: bottom_left.y.min(bottom_right.y).min(field_height),
         };
     }
 
@@ -434,7 +505,8 @@ impl CameraRig {
             let (sin_tilt, cos_tilt) = inspection.tilt.sin_cos();
             let (sin_yaw, cos_yaw) = inspection.yaw.sin_cos();
             let near = NEAR.min(INSPECT_MIN_NEAR.max(distance * INSPECT_NEAR_RATIO));
-            self.render_camera.set_perspective(self.vertical_fov, self.aspect, near, FAR);
+            // Close-ups center on the canvas (no HUD lens shift).
+            self.render_camera.set_perspective(self.vertical_fov, self.aspect, near, FAR, (0.0, 0.0));
             // The up vector is the orbit direction's tilt derivative, so it never degenerates.
             self.render_camera.look_at(
                 vec3(
@@ -446,7 +518,8 @@ impl CameraRig {
                 vec3(-sin_yaw * cos_tilt, sin_tilt, -cos_yaw * cos_tilt),
             );
         } else {
-            self.render_camera.set_perspective(self.vertical_fov, self.aspect, NEAR, FAR);
+            let shift = self.lens_shift();
+            self.render_camera.set_perspective(self.vertical_fov, self.aspect, NEAR, FAR, shift);
             let logical = self.logical_camera.position;
             let eye = vec3(logical.x + offset_x, logical.y, logical.z + offset_z);
             self.render_camera.copy_orientation(&self.logical_camera, eye);
@@ -495,7 +568,32 @@ mod tests {
         }
         assert!((max_extent - (1.0 - BOARD_MARGIN as f64)).abs() < 0.01, "{max_extent}");
         let bounds = rig.field_bounds();
-        assert!(bounds.min_x < 0.0 && bounds.max_x > 800.0 && bounds.min_y < 0.0 && bounds.max_y > 450.0);
+        assert_eq!(bounds, FieldBounds { min_x: 0.0, min_y: 0.0, max_x: 800.0, max_y: 450.0 });
+    }
+
+    #[test]
+    fn insets_frame_the_field_in_the_safe_area() {
+        let viewport = (1440.0, 900.0);
+        let mut rig = rig(800.0, 450.0, viewport);
+        assert!(rig.set_insets(80.0, 20.0, 140.0, 20.0));
+        assert!(!rig.set_insets(80.0, 20.0, 140.0, 20.0));
+        let corners = [(0.0, 0.0), (800.0, 0.0), (0.0, 450.0), (800.0, 450.0)];
+        let (mut top, mut bottom): (f64, f64) = (f64::INFINITY, f64::NEG_INFINITY);
+        for (x, y) in corners {
+            let screen = rig.project_to_viewport(x, 0.0, y);
+            assert!(screen.x >= 19.0 && screen.x <= 1421.0, "{screen:?}");
+            top = top.min(screen.y);
+            bottom = bottom.max(screen.y);
+        }
+        assert!(top >= 79.0 && bottom <= 761.0, "{top} {bottom}");
+        // The field touches the safe area on its limiting axis.
+        assert!((top - 80.0).abs() < 8.0 || (bottom - 760.0).abs() < 8.0, "{top} {bottom}");
+        // Picking still round-trips through the shifted projection.
+        let surface = rect(viewport);
+        let screen = rig.project_to_viewport(123.0, 0.0, 321.0);
+        let picked = rig.client_to_field(screen.x + surface.left, screen.y + surface.top, &surface).unwrap();
+        assert!((picked.x - 123.0).abs() < 0.05 && (picked.y - 321.0).abs() < 0.05, "{picked:?}");
+        assert_eq!(rig.field_bounds(), FieldBounds { min_x: 0.0, min_y: 0.0, max_x: 800.0, max_y: 450.0 });
     }
 
     #[test]

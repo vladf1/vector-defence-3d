@@ -322,6 +322,11 @@ impl WebGame {
         self.game.toggle_selected_laser_lock();
     }
 
+    #[wasm_bindgen(js_name = deselectTower)]
+    pub fn deselect_tower(&mut self) {
+        self.game.clear_selection();
+    }
+
     #[wasm_bindgen(js_name = sellSelectedTower)]
     pub fn sell_selected_tower(&mut self) {
         self.game.sell_selected_tower();
@@ -390,6 +395,17 @@ impl WebGame {
     ) -> bool {
         let rect = Self::rect(left, top, width, height);
         self.renderer.as_mut().is_some_and(|renderer| renderer.pan_between(from_x, from_y, to_x, to_y, &rect))
+    }
+
+    /// Frames the field inside the canvas area the HUD leaves uncovered (CSS pixels). Returns
+    /// whether the framing changed.
+    #[wasm_bindgen(js_name = setViewInsets)]
+    pub fn set_view_insets(&mut self, top: f32, right: f32, bottom: f32, left: f32) -> bool {
+        let changed = self.renderer.as_mut().is_some_and(|renderer| renderer.set_view_insets(top, right, bottom, left));
+        if changed {
+            self.sync_bounds();
+        }
+        changed
     }
 
     #[wasm_bindgen(js_name = resetView)]

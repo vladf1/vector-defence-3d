@@ -111,6 +111,13 @@ export interface LevelJsonData {
 
 export interface HudSnapshot {
   levelNumber?: number;
+  levelName?: string;
+  escapesLeft?: number;
+  escapesAllowed?: number;
+  selectedTowerKind?: TowerKind;
+  selectedTowerLevel?: number;
+  selectedTowerMaxLevel?: number;
+  selectedTowerRange?: number;
   money: number;
   waveCurrent?: number;
   waveTotal: number;
@@ -175,6 +182,7 @@ export interface ModalLevelCardView {
   stars: number;
   status: string;
   title: string;
+  name: string;
   description: string;
   summary: string;
   starsLabel: string;

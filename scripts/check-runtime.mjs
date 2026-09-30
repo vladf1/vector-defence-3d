@@ -78,6 +78,23 @@ await runBrowserPage({ path: "/", viewport: { width: 1200, height: 900 }, launch
   });
   if (fight.placed !== 8 || fight.money <= fight.moneyBefore) throw new Error(`Seeded fight must earn bounties: ${JSON.stringify(fight)}`);
   checks.push(`Seeded 20 s fight with 8 towers earns bounties ($${fight.moneyBefore} -> $${fight.money}, wave ${fight.wave})`);
+
+  const pauseLabel = () => page.locator(".pause-button").getAttribute("aria-label");
+  if ((await pauseLabel()) !== "Pause") throw new Error("The battle must be running before opening help");
+  await page.keyboard.press("?");
+  const help = page.getByRole("dialog", { name: "How to play" });
+  await help.waitFor();
+  if ((await pauseLabel()) !== "Resume") throw new Error("Opening help must pause the battle");
+  for (let press = 0; press < 4; press += 1) {
+    await page.keyboard.press(press % 2 === 0 ? "Tab" : "Shift+Tab");
+    if (!await help.evaluate((element) => element.contains(document.activeElement))) throw new Error("Tab must stay inside the help dialog");
+  }
+  await page.keyboard.press("1");
+  if ((await page.locator(".tower-button.active").count()) !== 0) throw new Error("Game shortcuts must be ignored while help is open");
+  await page.keyboard.press("Escape");
+  await help.waitFor({ state: "detached" });
+  if ((await pauseLabel()) !== "Pause") throw new Error("Closing help must resume the battle it paused");
+  checks.push("Help pauses the battle, keeps focus inside, and resumes on close");
 });
 
 for (const viewport of [{ width: 1200, height: 900 }, { width: 375, height: 812 }, { width: 390, height: 1000 }]) {

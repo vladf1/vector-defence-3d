@@ -773,6 +773,7 @@ fn hud_and_modal_json_match_the_typescript_shapes() {
             "unlocked",
             "cleared",
             "current",
+            "name",
             "stars",
             "status",
             "title",
