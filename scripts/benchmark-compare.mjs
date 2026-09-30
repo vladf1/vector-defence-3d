@@ -13,6 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { brotliCompressSync, constants as zlibConstants, gzipSync } from "node:zlib";
 import { chromium } from "playwright";
+import { buildReleaseEngine } from "./benchmark-browser-harness.mjs";
 
 const argument = (name, fallback) => {
   const match = process.argv.find((value) => value.startsWith(`--${name}=`));
@@ -113,6 +114,8 @@ async function measureProduction() {
 
 /** Stages the crowded fight through whichever engine the checkout has, then measures frames. */
 async function measureFrames() {
+  // The dev server's labs engine is built without LTO for the edit loop; measure the release one.
+  buildReleaseEngine(root);
   const { createServer } = await import(path.join(root, "node_modules/vite/dist/node/index.js"));
   const server = await createServer({ root, configFile: path.join(root, "vite.config.ts"), logLevel: "error", server: { host: "127.0.0.1" } });
   await server.listen(0);

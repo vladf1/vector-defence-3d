@@ -29,7 +29,7 @@ Install dependencies:
 npm install
 ```
 
-Start the local development server (it builds the Wasm engine first; rerun `npm run wasm` after Rust or WGSL edits):
+Start the local development server (it builds the Wasm engine first; rerun `npm run wasm` after Rust or WGSL edits, which takes under a second):
 
 ```bash
 npm run dev
@@ -62,8 +62,9 @@ Useful validation commands:
 ```bash
 npm run build
 npm run build:pages
+npm run check
 npm run test:rust
-npm run rust:clippy
+npm run check:rust-lint
 npm run check:runtime
 npm run dev
 npm run render:3d

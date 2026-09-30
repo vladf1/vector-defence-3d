@@ -26,6 +26,16 @@ codegen-units = 1
 panic = "abort"
 strip = true
 
-# Native tests run seeded campaigns; keep them quick in debug builds.
-[profile.dev.package."*"]
-opt-level = 2
+# The dev loop's engine (`npm run wasm` / `npm run dev`): the release settings without
+# whole-program LTO, so a Rust edit relinks in about half a second instead of two. Production
+# (`npm run build`) and the benchmark scripts always use `release`.
+[profile.wasm-dev]
+inherits = "release"
+lto = "off"
+codegen-units = 16
+incremental = true
+
+# The simulation tests play seeded campaigns; a light optimization pass on the simulation crate
+# keeps them quick without optimizing (and slowing the build of) every dependency.
+[profile.dev.package.vd-core]
+opt-level = 1

@@ -1,0 +1,71 @@
+name: Check
+
+# Three parallel jobs, each running one of the package scripts that `npm run check` chains, so
+# CI and local checks cannot drift. The Pages deploy calls this workflow and publishes the
+# site job's artifact only after every job passes.
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      pages:
+        description: Build for the Pages base path and upload the Pages artifact.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels its older run; deploy runs (called from the Pages
+# workflow, which has its own concurrency group) never share a group.
+concurrency:
+  group: check-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  site:
+    name: Site (Wasm, types, Vite)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: site
+          node: "true"
+          wasm-bindgen: "true"
+
+      - name: Build
+        if: ${{ !inputs.pages }}
+        run: npm run build
+
+      # Served from the repository path (no custom domain), so build with its base.
+      - name: Build the Pages site
+        if: ${{ inputs.pages }}
+        run: npm run build:pages
+
+      - if: ${{ inputs.pages }}
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./dist
+
+  rust-lint:
+    name: Rust format and clippy
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: rust-lint
+      - run: npm run check:rust-lint
+
+  rust-tests:
+    name: Rust tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          cache-key: rust-tests
+      - run: npm run test:rust

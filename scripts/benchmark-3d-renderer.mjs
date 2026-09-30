@@ -2,7 +2,9 @@
 // per-frame CPU cost under a crowded late-campaign fight driven by the real session loop.
 // All pipelines are created at startup, so gameplay can never compile new ones.
 // Usage: node scripts/benchmark-3d-renderer.mjs [--mobile] [--seconds=N]
-import { WEBGPU_LAUNCH_ARGS, runBrowserPage } from "./benchmark-browser-harness.mjs";
+import { WEBGPU_LAUNCH_ARGS, buildReleaseEngine, runBrowserPage } from "./benchmark-browser-harness.mjs";
+
+buildReleaseEngine();
 
 const mobile = process.argv.includes("--mobile");
 const secondsArgument = process.argv.find((argument) => argument.startsWith("--seconds="));

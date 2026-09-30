@@ -6,11 +6,12 @@ Active browser implementation lives in this repo root. The engine is Rust compil
 
 Key paths:
 
-- Rust workspace: `Cargo.toml` (release profile: `opt-level = "z"`, LTO, `panic = "abort"`), `rust-toolchain.toml`, `.cargo/config.toml` (`--cfg=web_sys_unstable_apis` for the WebGPU bindings, SIMD), `rustfmt.toml` (120 columns)
+- Rust workspace: `Cargo.toml` (profiles: `release` is `opt-level = "z"`, fat LTO, one codegen unit, `panic = "abort"` for what ships; `wasm-dev` is the same without LTO, for the edit loop; the dev/test profile optimizes only `vd-core` at level 1), `rust-toolchain.toml`, `.cargo/config.toml` (`--cfg=web_sys_unstable_apis` for the WebGPU bindings, SIMD), `rustfmt.toml` (120 columns)
 - Simulation crate: `crates/core/` (`vd-core`; native tests with `cargo test`)
 - Renderer crate: `crates/render/` (`vd-render`; pure parts build natively for tests, GPU parts are Wasm-only)
 - Wasm bindings crate: `crates/web/` (`vd-web`: `WebGame`, `createBoardRenderer`, and the `labs` feature)
-- Wasm build script: `scripts/build-wasm.mjs` (`npm run wasm`; writes the ignored `src/generated/engine/` and `src/generated/engine-labs/`)
+- Wasm build script: `scripts/build-wasm.mjs` (`npm run wasm`; writes the ignored `src/generated/engine/` and `src/generated/engine-labs/`); toolchain helpers `scripts/rust-toolchain.mjs` and `scripts/cargo.mjs`
+- CI: `.github/workflows/check.yml` (pull requests; also called by the Pages deploy), `.github/workflows/deploy-pages.yml`, shared setup in `.github/actions/setup/action.yml`
 - Engine loader: `src/engine.ts`
 - Browser app entry: `src/main.ts`
 - Root Svelte component: `src/App.svelte`
@@ -64,7 +65,8 @@ Repository notes:
 - The page shell is a Svelte 5 + Vite app. Avoid reintroducing hand-built DOM/UI glue when a small Svelte component or view model is the cleaner boundary.
 - The board renders only through raw WebGPU, driven from Rust through `web-sys` (no wgpu, three.js or other rendering library, and no 2D canvas board). Keeping the download small is a goal: do not add rendering dependencies, bring back a 2D renderer, or add raster UI images (icons are inline SVG data) without being asked. Check the Wasm size (`gzip -9` of `src/generated/engine/engine_bg.wasm`) when adding dependencies.
 - Wasm size rules: no runtime serde/JSON parser (levels are compiled in by `build.rs`; view models use the small writer in `crates/core/src/json.rs`), no float `Display`/`{:.N}` formatting or `str::parse::<f64>` in the game build (they pull ~20 KB of tables; use `js_to_fixed` and integer formatting), no `HashMap` (SipHash and hashbrown; use `SmallMap` or dense arrays), no Unicode case/whitespace helpers (use the ASCII ones). `crates/web/src/math.rs` routes libm (`sin`, `cos`, `exp`, `pow`, ...) to the browser's `Math`, so f32 and f64 math share one native implementation.
-- The Rust toolchain comes from rustup (`rust-toolchain.toml`); a system `cargo` earlier on PATH (Homebrew) may lack the wasm32 target, so `scripts/build-wasm.mjs` asks `rustup which cargo` and also puts that toolchain's `lib` on `DYLD_FALLBACK_LIBRARY_PATH` for rust-lld on macOS.
+- The Rust toolchain comes from rustup (`rust-toolchain.toml`); a system `cargo` earlier on PATH (Homebrew) may lack the wasm32 target, so `scripts/rust-toolchain.mjs` asks `rustup which cargo` and also puts that toolchain's `lib` on `DYLD_FALLBACK_LIBRARY_PATH` for rust-lld on macOS. The npm scripts run cargo through it (`scripts/cargo.mjs`); run cargo directly only with rustup's toolchain first on PATH.
+- Build speed: `npm run wasm` (and `npm run dev`) is the edit loop. It rebuilds only the labs engine (the one the dev server and debug pages run) with the `wasm-dev` profile, so a Rust edit takes under a second; the game engine is built once if missing. Both engines link to the same `vd_web.wasm`, so alternating them relinks every time; keep the dev loop on one. wasm-bindgen runs only when its input changed (a `.source-hash` stamp in each output directory) and overlaps the next engine's compile. `npm run build` passes `--all` (both engines, `release`), and the timing scripts (`benchmark:3d`, `benchmark:3d:startup`, `benchmark:compare`) rebuild the labs engine with `--release` first, so they never measure the LTO-free dev build. Do not add `opt-level` overrides for all dependencies to the dev profile: nothing here needs optimized dependencies, and it doubled cold test and clippy builds.
 
 Current code structure:
 
@@ -167,27 +169,30 @@ Gameplay / UI notes:
 
 To run the browser version:
 
-- `npm run dev` (builds both Wasm variants, then starts Vite)
+- `npm run dev` (builds the labs engine with the fast `wasm-dev` profile, then starts Vite)
 
 Useful validation commands:
 
-- `npm run build` (Wasm build, `svelte-check`, Vite build)
+- `npm run check` (everything CI runs: `build`, `check:rust-lint`, `test:rust`; CI runs the three in parallel jobs)
+- `npm run build` (both release engines, `svelte-check`, Vite build)
 - `npm run test:rust` (native simulation tests: timing, collisions, effects, lifecycle, HUD/modal strings, seeded campaign smoke runs; renderer tests: camera rig, geometry, WGSL validation, a seeded busy scene)
-- `npm run rust:clippy` (native and wasm32, `-D warnings`) and `cargo fmt --all --check`
+- `npm run check:rust-lint` (`rust:fmt`, then `rust:clippy`: native all-targets, wasm32 render and web, wasm32 web with `labs`, all `-D warnings`)
 - `npm run check:runtime` (browser checks on the real page: WebGPU startup, placement painting, a seeded fight, modal focus handling)
 - `npm run build:pages`
-- `npm run wasm` (after Rust or WGSL edits while `vite` is running; `-- --game-only` skips the labs build)
+- `npm run wasm` (after Rust or WGSL edits while `vite` is running; `-- --release` for the release labs engine, `-- --all` for both release engines, `-- --game-only` for the release game engine)
 - `npm run benchmark:compare` (download size, production startup, and crowded-fight frame cost; `--root=DIR` measures another checkout, including pre-Rust TypeScript ones; `--mobile`, `--cpu=4`, `--runs=N`)
 - `npm run render:levels`
 - `npm run render:3d` (staged, repeatable 3D overview, per-monster/tower close-ups, explosion, tank-death, and breach sequences under `artifacts/3d-board/`: the session loop is frozen and `Math.random` seeded; `--mobile`, `--level=N`, `--out=DIR`)
 - `npm run benchmark:3d` (time to ready, pipeline count, per-frame CPU draw cost, instances, and draw calls in a crowded fight; `--mobile`)
 - `npm run benchmark:3d:startup` (median per-phase startup timings; `--mobile`, `--cpu=4` CPU throttling, `--cold` for first-visit shader compiles, `--runs=N`)
 
-The supported runtime ranges are declared in `package.json`; `.nvmrc` pins the local/CI Node release, and `rust-toolchain.toml` pins Rust (with `wasm-bindgen-cli` 0.2.129 matching the crate pin; CI installs both). There is currently no general `test`, `lint`, or `format:check` npm script, so do not claim those checks ran unless they have been added.
+The supported runtime ranges are declared in `package.json`; `.nvmrc` pins the local/CI Node release, and `rust-toolchain.toml` pins Rust (with `wasm-bindgen-cli` 0.2.129 matching the crate pin; CI installs both, the CLI from its prebuilt release). `npm run check` is the whole gate; there is no JavaScript lint or format check, so do not claim those ran.
+
+CI (`.github/workflows/check.yml`) runs on every pull request as three parallel jobs, one per chained script so CI and local cannot drift: Site (`build`), Rust format and clippy (`check:rust-lint`), Rust tests (`test:rust`). Each job has its own `Swatinem/rust-cache` shared key; the Pages deploy calls the same workflow on `main`, so main saves the caches pull requests restore. A new gate step belongs in one of those scripts (or a new job), not only in `check`. `check:runtime` needs a real GPU and is not in CI; run it locally.
 
 GitHub Pages branch publishing:
 
-- The site deploys to https://fridman.me/vector-defence-3d/ (the account's Pages domain; vladf1.github.io/vector-defence-3d/ redirects there), so the workflow builds with `npm run build:pages` (base `/vector-defence-3d/`); keep that base in sync with the repository name. The workflow installs the pinned Rust toolchain and `wasm-bindgen-cli` before building.
+- The site deploys to https://fridman.me/vector-defence-3d/ (the account's Pages domain; vladf1.github.io/vector-defence-3d/ redirects there), so the workflow builds with `npm run build:pages` (base `/vector-defence-3d/`); keep that base in sync with the repository name. The deploy workflow calls `check.yml` with `pages: true` (the site job builds with that base and uploads the Pages artifact) and deploys only after every check job passes.
 - To publish a non-main branch for testing, use the existing `Deploy GitHub Pages` workflow with `workflow_dispatch` on that branch. If the `github-pages` environment blocks the branch, temporarily add a deployment branch policy for that exact branch, run the workflow, then remove the temporary policy after the deploy succeeds.
 - Do not create or push a `gh-pages` branch for branch testing. The Pages publish path for this repo is the Actions artifact workflow, not a deploy branch workaround.
 
