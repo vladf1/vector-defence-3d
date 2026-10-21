@@ -15,6 +15,11 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Refresh HTTPS trust
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install --only-upgrade -y ca-certificates
     # rustup reads the channel, components and targets from rust-toolchain.toml.
     - name: Install the pinned Rust toolchain
       shell: bash
@@ -46,6 +51,7 @@ runs:
       uses: actions/setup-node@v7
       with:
         node-version-file: .nvmrc
+        check-latest: true
         cache: npm
 
     - if: inputs.node == 'true'

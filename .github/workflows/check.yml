@@ -22,6 +22,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  NODE_OPTIONS: --use-openssl-ca
+  SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
   CARGO_TERM_COLOR: always
 
 jobs:
