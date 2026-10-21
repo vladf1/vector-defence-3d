@@ -186,7 +186,7 @@ Useful validation commands:
 - `npm run benchmark:3d` (time to ready, pipeline count, per-frame CPU draw cost, instances, and draw calls in a crowded fight; `--mobile`)
 - `npm run benchmark:3d:startup` (median per-phase startup timings; `--mobile`, `--cpu=4` CPU throttling, `--cold` for first-visit shader compiles, `--runs=N`)
 
-The supported runtime ranges are declared in `package.json`; `.nvmrc` pins the local/CI Node release, and `rust-toolchain.toml` pins Rust (with `wasm-bindgen-cli` 0.2.129 matching the crate pin; CI installs both, the CLI from its prebuilt release). `npm run check` is the whole gate; there is no JavaScript lint or format check, so do not claim those ran.
+The supported runtime ranges are declared in `package.json`; GitHub Actions uses Node 24, and `rust-toolchain.toml` pins Rust (with `wasm-bindgen-cli` 0.2.129 matching the crate pin; CI installs both, the CLI from its prebuilt release). `npm run check` is the whole gate; there is no JavaScript lint or format check, so do not claim those ran.
 
 CI (`.github/workflows/check.yml`) runs on every pull request as three parallel jobs, one per chained script so CI and local cannot drift: Site (`build`), Rust format and clippy (`check:rust-lint`), Rust tests (`test:rust`). Each job has its own `Swatinem/rust-cache` shared key; the Pages deploy calls the same workflow on `main`, so main saves the caches pull requests restore. A new gate step belongs in one of those scripts (or a new job), not only in `check`. `check:runtime` needs a real GPU and is not in CI; run it locally.
 
